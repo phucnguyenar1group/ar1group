@@ -1,8 +1,12 @@
 // =================================================================
 // CẤU HÌNH
 // =================================================================
-// !!! QUAN TRỌNG: Thay thế URL này bằng URL triển khai Web App của bạn
-const API_ENDPOINT = "http://localhost:3000/api/update-sheet"; 
+// !!! QUAN TRỌNG: Thay thế URL này bằng URL Vercel đã cung cấp cho bạn
+const API_BASE_URL = "https://ar1group.vercel.app"; 
+
+// Định nghĩa các endpoints trên server Express
+const GET_DATA_ENDPOINT = `${API_BASE_URL}/api/sheet-data`;
+const UPDATE_DATA_ENDPOINT = `${API_BASE_URL}/api/update-sheet`;
 
 // =================================================================
 // BIẾN TOÀN CỤC
@@ -14,21 +18,14 @@ let changesToSave = []; // Mảng chỉ lưu các ô đã thực sự thay đổ
 // KHỞI TẠO ỨNG DỤNG
 // =================================================================
 document.addEventListener("DOMContentLoaded", () => {
-  // Tải trang dashboard mặc định khi vào
   loadView('dashboard-main');
-
-  // Gán sự kiện cho các link trong sidebar một lần duy nhất
   document.querySelectorAll(".sidebar-menu a").forEach(link => {
     link.addEventListener("click", (event) => {
       event.preventDefault();
       const viewName = link.getAttribute("data-view");
-      if (viewName) {
-        loadView(viewName);
-      }
+      if (viewName) loadView(viewName);
     });
   });
-
-  // Ủy quyền sự kiện cho các nút hành động (Sửa, Lưu, Hủy) trong #main-content
   document.getElementById("main-content").addEventListener("click", handleMainContentClick);
 });
 
@@ -36,55 +33,33 @@ document.addEventListener("DOMContentLoaded", () => {
 // CÁC HÀM TIỆN ÍCH
 // =================================================================
 
-/**
- * Hiển thị email người dùng trên sidebar.
- * dashboard.html sẽ gọi hàm này sau khi xác thực thành công.
- */
 function showUserEmail(email) {
     const userEmailElement = document.getElementById('userEmail');
-    if(userEmailElement) {
-        userEmailElement.textContent = email || "Không xác định";
-    }
+    if(userEmailElement) userEmailElement.textContent = email || "Không xác định";
 }
 
-/**
- * Tải nội dung của một trang (view) từ file .html và hiển thị.
- * @param {string} viewName - Tên của view (ví dụ: 'Contact', 'Vendor').
- */
 async function loadView(viewName) {
   const mainContent = document.getElementById("main-content");
   mainContent.innerHTML = `<p class="main-loading">Đang tải trang ${viewName}...</p>`;
-
   try {
-    // Tải file HTML tương ứng
     const response = await fetch(`${viewName.toLowerCase()}.html`);
-    if (!response.ok) throw new Error(`Không thể tải ${viewName}.html. File không tồn tại hoặc có lỗi.`);
-    
+    if (!response.ok) throw new Error(`Không thể tải ${viewName}.html.`);
     mainContent.innerHTML = await response.text();
-
+    
     // Sau khi tải HTML xong, nếu là trang Contact thì tải dữ liệu cho nó
     if (viewName === 'Contact') {
       await loadContactData();
     }
   } catch (error) {
     mainContent.innerHTML = `<p class="main-loading" style="color: red;">Lỗi: ${error.message}</p>`;
-    console.error("Lỗi tải view:", error);
   }
 }
 
-/**
- * Xử lý tập trung các sự kiện click cho các nút hành động.
- * @param {Event} event
- */
 function handleMainContentClick(event) {
   const targetId = event.target.id;
-  if (targetId === 'btn-edit') {
-    enableEditingMode();
-  } else if (targetId === 'btn-save') {
-    saveChanges();
-  } else if (targetId === 'btn-cancel') {
-    cancelEditingMode();
-  }
+  if (targetId === 'btn-edit') enableEditingMode();
+  else if (targetId === 'btn-save') saveChanges();
+  else if (targetId === 'btn-cancel') cancelEditingMode();
 }
 
 // =================================================================
@@ -92,42 +67,39 @@ function handleMainContentClick(event) {
 // =================================================================
 
 /**
- * Tải và hiển thị dữ liệu Contact từ Google Sheet.
+ * *** THAY ĐỔI 1: Tải dữ liệu từ Express Server để tận dụng Caching ***
+ * Tải và hiển thị dữ liệu Contact.
  */
 async function loadContactData() {
   const tableBody = document.getElementById("contact-table");
   const editButton = document.getElementById("btn-edit");
-  if (!tableBody || !editButton) {
-      console.error("Không tìm thấy các thành phần của bảng Contact.");
-      return;
-  }
+  if (!tableBody || !editButton) return;
   tableBody.innerHTML = '<tr><td colspan="3">Đang tải dữ liệu...</td></tr>';
   
   try {
-    // Gọi doGet từ Apps Script để lấy dữ liệu mới nhất
-    const SCRIPT_URL_GET = "https://script.google.com/macros/s/AKfycbxb6gb0N6pEekpLxGMr1Dfz-RUtYfI4PnRMcfoxuFLmMqWiTkAtaG_2rb-A-sXVqe28Kw/exec";
-    const response = await fetch(SCRIPT_URL_GET);
+    // Gọi đến Express server thay vì Apps Script trực tiếp
+    const response = await fetch(`${GET_DATA_ENDPOINT}?sheetName=Contact`);
     if (!response.ok) throw new Error("Lỗi mạng hoặc server không phản hồi.");
     
-    const data = await response.json();
-    if(!data || data.length === 0) throw new Error("Không có dữ liệu để hiển thị.");
+    const result = await response.json();
+    if(result.status !== 'success' || !result.data) {
+      throw new Error(result.message || "Không có dữ liệu để hiển thị.");
+    }
+    
+    console.log(`Dữ liệu được tải từ: ${result.source || 'google'}`); // Sẽ thấy 'cache' hoặc 'google'
+    originalData = result.data; // Dữ liệu đã là JSON, không cần parse lại
+    renderContactTable(result.data);
 
-    originalData = JSON.parse(JSON.stringify(data)); // Lưu bản sao sâu của dữ liệu gốc
-    renderContactTable(data);
-
-    // Hiển thị nút "Chỉnh sửa" nếu là admin
     if (sessionStorage.getItem('userRole') === 'admin') {
       editButton.style.display = 'inline-block';
     }
   } catch (error) {
     tableBody.innerHTML = `<tr><td colspan="3" style="color: red;">Lỗi tải dữ liệu: ${error.message}</td></tr>`;
-    console.error("Lỗi tải Contact:", error);
   }
 }
 
 /**
  * Hiển thị dữ liệu lên bảng một cách linh hoạt.
- * @param {Array<Object>} data - Mảng dữ liệu contact.
  */
 function renderContactTable(data) {
   const tableContainer = document.getElementById("contact-table-grid");
@@ -140,7 +112,6 @@ function renderContactTable(data) {
 
   if (!data || data.length === 0) return;
 
-  // Tạo header từ các key của object đầu tiên trong mảng dữ liệu
   const headers = Object.keys(data[0]);
   const headerRow = document.createElement("tr");
   headers.forEach(headerText => {
@@ -150,11 +121,9 @@ function renderContactTable(data) {
   });
   tableHead.appendChild(headerRow);
   
-  // Tạo các hàng dữ liệu
   data.forEach((row, rowIndex) => {
     const tr = document.createElement("tr");
     tr.setAttribute('data-row-index', rowIndex);
-
     headers.forEach(header => {
         const td = document.createElement("td");
         td.setAttribute('data-column-name', header);
@@ -165,65 +134,48 @@ function renderContactTable(data) {
   });
 }
 
-/**
- * Bật chế độ chỉnh sửa cho bảng Contact.
- */
 function enableEditingMode() {
   document.getElementById('btn-edit').style.display = 'none';
   document.getElementById('btn-save').style.display = 'inline-block';
   document.getElementById('btn-cancel').style.display = 'inline-block';
 
-  // Thêm thuộc tính contenteditable và class để CSS cho các ô
   document.querySelectorAll("#contact-table td").forEach(cell => {
     cell.setAttribute("contenteditable", "true");
     cell.classList.add("editable-cell");
-    cell.addEventListener('input', trackChange); // Bắt sự kiện thay đổi
+    cell.addEventListener('input', trackChange);
   });
-  
-  changesToSave = []; // Reset mảng thay đổi khi bắt đầu sửa
+  changesToSave = [];
 }
 
-/**
- * Tắt chế độ chỉnh sửa và hủy các thay đổi.
- */
 function cancelEditingMode() {
   document.getElementById('btn-edit').style.display = 'inline-block';
   document.getElementById('btn-save').style.display = 'none';
   document.getElementById('btn-cancel').style.display = 'none';
   
-  // Gỡ bỏ thuộc tính contenteditable và sự kiện
   document.querySelectorAll("#contact-table td").forEach(cell => {
     cell.setAttribute("contenteditable", "false");
     cell.classList.remove("editable-cell");
     cell.removeEventListener('input', trackChange);
   });
-
-  renderContactTable(originalData); // Khôi phục lại dữ liệu từ bản gốc đã lưu
+  renderContactTable(originalData);
   changesToSave = [];
 }
 
-/**
- * Theo dõi sự thay đổi của một ô và thêm vào mảng `changesToSave`.
- * @param {Event} event 
- */
 function trackChange(event) {
     const cell = event.target;
     const rowIndex = cell.parentElement.getAttribute('data-row-index');
     const columnName = cell.getAttribute('data-column-name');
     const value = cell.textContent;
 
-    // Xóa các thay đổi cũ trên cùng một ô để chỉ giữ lại giá trị cuối cùng
     const existingChangeIndex = changesToSave.findIndex(c => c.rowIndex === rowIndex && c.columnName === columnName);
     if (existingChangeIndex > -1) {
         changesToSave.splice(existingChangeIndex, 1);
     }
-    
-    // Thêm thay đổi mới vào mảng
     changesToSave.push({ rowIndex, columnName, value });
 }
 
-
 /**
+ * *** THAY ĐỔI 2: Gửi ID Token để Xác thực quyền trên Server ***
  * Gửi các thay đổi đã được ghi nhận lên Google Sheet.
  */
 async function saveChanges() {
@@ -238,37 +190,44 @@ async function saveChanges() {
     saveButton.disabled = true;
 
     try {
-        // Dữ liệu gửi đi giờ chỉ cần mảng 'updates'
-        const payload = { updates: changesToSave };
+        // Lấy token xác thực mới nhất từ Firebase (hàm này được định nghĩa trong dashboard.html)
+        const idToken = await window.getFreshIdToken();
+        if (!idToken) {
+            throw new Error("Không thể lấy thông tin người dùng. Vui lòng đăng nhập lại.");
+        }
+
+        const payload = { 
+            sheetName: 'Contact', // Gửi kèm tên sheet
+            updates: changesToSave 
+        };
         
-        // Gọi đến API ENDPOINT của server Express
-        const response = await fetch(API_ENDPOINT, {
+        const response = await fetch(UPDATE_DATA_ENDPOINT, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
+              // *** GỬI TOKEN LÊN SERVER ĐỂ XÁC THỰC ***
+              'Authorization': `Bearer ${idToken}`
             },
             body: JSON.stringify(payload),
         });
 
         if (!response.ok) {
-            // Xử lý lỗi từ server Express
             const errorResult = await response.json();
-            throw new Error(errorResult.message || `Lỗi HTTP: ${response.status}`);
+            throw new Error(errorResult.message || `Lỗi từ server: ${response.statusText}`);
         }
         
         const result = await response.json();
 
         if (result.status === 'success') {
             alert("Cập nhật thành công!");
-            await loadContactData(); // Tải lại dữ liệu gốc từ Apps Script (vẫn dùng doGet)
+            await loadContactData(); // Tải lại dữ liệu mới nhất
         } else {
             throw new Error(result.message || "Lỗi không xác định từ server.");
         }
 
     } catch (error) {
         alert(`Lưu thất bại: ${error.message}`);
-        console.error("Lỗi khi lưu:", error);
-        renderContactTable(originalData);
+        renderContactTable(originalData); // Khôi phục giao diện về trạng thái gốc
     } finally {
         cancelEditingMode();
         saveButton.textContent = 'Lưu thay đổi';

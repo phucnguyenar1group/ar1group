@@ -3,7 +3,8 @@
     "axios": "^1.10.0",
     "cors": "^2.8.5",
     "express": "^5.1.0",
-    "firebase": "^11.9.1"
+    "firebase": "^11.9.1",
+    "firebase-admin": "^13.4.0"
   },
   "name": "ar1-firebase",
   "version": "1.0.0",
