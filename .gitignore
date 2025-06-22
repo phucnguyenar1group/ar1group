@@ -70,3 +70,4 @@ node_modules/
 
 # Accountkey generated files
 serviceAccountKey.json
+.vercel
