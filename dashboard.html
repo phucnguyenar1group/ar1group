@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Dashboard</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link href="https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css" rel="stylesheet" />
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body class="dashboard-body">
+    <!-- Sidebar -->
+    <nav class="sidebar">
+      <div class="sidebar-header">
+        <img
+          src="https://ar1group.com/wp-content/uploads/2023/04/AR1-RD-Sourcing-Distribute-Asian-Food-supply.png"
+          alt="logo"
+          class="sidebar-logo"
+        />
+        <div>
+          <div class="sidebar-user" id="userEmail">Đang tải...</div>
+          <div class="sidebar-group">AR1 Group</div>
+        </div>
+      </div>
+
+      <ul class="sidebar-menu">
+        <li><a href="#" data-view="Contact"   class="menu-link"><i class='bx  bx-id-card'         ></i> <span>Contact</span></a></li>
+        <li><a href="#" data-view="Vendor"    class="menu-link"><i class='bx  bx-buildings'       ></i><span>Vendor</span></a></li>
+        <li><a href="#" data-view="Product"   class="menu-link"><i class='bx  bx-box'             ></i><span>Product</span></a></li>
+        <li><a href="#" data-view="Marketing" class="menu-link"><i class='bx  bx-doughnut-chart'  ></i><span>Marketing</span></a></li>
+        <li><a href="#" data-view="Shipment"  class="menu-link"><i class='bx  bx-package'            ></i><span>Shipment</span></a></li>
+      </ul>
+
+      <div class="sidebar-logout">
+        <button id="logout-btn" class="logout-btn">Đăng xuất</button>
+      </div>
+    </nav>
+
+    <!-- Main content -->
+    <div class="main-wrapper">
+  <div class="search-bar-wrapper">
+    <div class="search-bar-container">
+      <span class="search-icon">
+        <svg width="20" height="20" fill="none" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7" stroke="#888" stroke-width="2"/><path d="M20 20L17 17" stroke="#888" stroke-width="2" stroke-linecap="round"/></svg>
+      </span>
+      <input type="text" class="search-bar" placeholder="Tìm kiếm..." />
+    </div>
+  </div>
+  <div class="main-area">
+    <main class="main-content" id="main-content">
+      <p class="main-loading">Đang tải trang...</p>
+    </main>
+  </div>
+    </div>
+
+    <!-- Firebase logic dùng module -->
+    <script type="module">
+  import { initializeApp, getApps } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-app.js";
+  import { getAuth, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-auth.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyAo1dijhT5XW-EU96LzheOvZSs99IiBNUU",
+    authDomain: "ar1group.firebaseapp.com",
+    projectId: "ar1group",
+    storageBucket: "ar1group.appspot.com",
+    messagingSenderId: "274727678186",
+    appId: "1:274727678186:web:05cdae4f7ad636185fa793"
+  };
+
+  // Khởi tạo Firebase nếu chưa có
+  let app;
+  if (!getApps().length) { app = initializeApp(firebaseConfig); }
+  else { app = getApps()[0] }
+  const auth = getAuth(app);
+
+  // Tạo một hàm toàn cục để các script khác có thể gọi và lấy token mới nhất
+  window.getFreshIdToken = async () => {
+    const user = auth.currentUser;
+    if (user) {
+      // user.getIdToken() sẽ tự động làm mới token nếu nó gần hết hạn
+      return await user.getIdToken();
+    }
+    return null; // Trả về null nếu không có người dùng
+  };
+
+  // Xử lý trạng thái đăng nhập, phân quyền và hiển thị email
+  onAuthStateChanged(auth, (user) => {
+    if (user) {
+      // Gọi hàm từ app.js để hiển thị email
+      showUserEmail(user.email); 
+      
+      // --- PHẦN QUAN TRỌNG ĐỂ PHÂN QUYỀN ---
+      // Xác định vai trò và lưu vào sessionStorage để app.js có thể dùng
+      if (user.email && user.email.endsWith('@ar1group.com')) {
+        sessionStorage.setItem('userRole', 'admin');
+      } else {
+        sessionStorage.setItem('userRole', 'customer');
+      }
+    } else {
+      // Nếu chưa đăng nhập, chuyển về trang login
+      sessionStorage.clear(); // Xóa session khi người dùng không còn đăng nhập
+      window.location.href = "index.html";
+    }
+  });
+
+  // Xử lý đăng xuất
+  document.getElementById('logout-btn').onclick = () => {
+    signOut(auth).then(() => {
+      sessionStorage.clear(); // Xóa session trước khi chuyển trang
+      window.location.href = "index.html";
+    }).catch((error) => {
+      alert("Đăng xuất thất bại: " + error.message);
+    });
+  };
+</script>
+
+    </script>
+    <script defer src="app.js"></script>
+  </body>
+</html>
