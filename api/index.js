@@ -49,22 +49,43 @@ const checkPermissions = async (req, res, next) => {
 // Route lấy dữ liệu
 app.get('/api/sheet-data', async (req, res) => {
     const sheetName = req.query.sheetName;
-    if (!sheetName) return res.status(400).json({ message: 'Cần cung cấp sheetName' });
+    if (!sheetName) {
+        return res.status(400).json({ status: 'error', message: 'Cần cung cấp "sheetName" trong query.' });
+    }
 
     const now = Date.now();
+    // Kiểm tra cache trước
     if (cache[sheetName] && (now - cache[sheetName].timestamp) / 1000 < CACHE_DURATION_SECONDS) {
         console.log(`[Cache HIT] Trả về dữ liệu cache cho: ${sheetName}`);
         return res.json({ status: 'success', source: 'cache', data: cache[sheetName].data });
     }
 
     try {
+        console.log(`[Cache MISS] Lấy dữ liệu mới từ Google cho: ${sheetName}`);
         const responseFromGoogle = await axios.get(`${SCRIPT_URL}?sheetName=${sheetName}`);
-        if (responseFromGoogle.data && responseFromGoogle.data.data) {
-            cache[sheetName] = { data: responseFromGoogle.data.data, timestamp: now };
+        const googleData = responseFromGoogle.data;
+
+        // Kiểm tra kỹ cấu trúc dữ liệu trả về từ Google Apps Script
+        if (googleData && googleData.status === 'success' && Array.isArray(googleData.data)) {
+            // Lưu dữ liệu vào cache
+            cache[sheetName] = { data: googleData.data, timestamp: now };
+            console.log(`[Cache SET] Đã lưu cache cho: ${sheetName}`);
+
+            // Trả về cho client với định dạng chuẩn
+            res.json({
+                status: 'success',
+                source: 'google',
+                data: googleData.data
+            });
+        } else {
+            // Nếu Apps Script trả về lỗi hoặc định dạng không đúng
+            console.error(`[Google Script Error] Phản hồi không hợp lệ cho ${sheetName}:`, googleData);
+            res.status(502).json({ status: 'error', message: googleData.message || 'Dữ liệu trả về từ Google không hợp lệ.' });
         }
-        res.json(responseFromGoogle.data);
     } catch (error) {
-        res.status(500).json({ message: 'Lỗi server khi lấy dữ liệu từ Google.' });
+        // Nếu có lỗi mạng khi gọi Apps Script
+        console.error(`[Axios Error] Lỗi khi gọi Google Script cho ${sheetName}:`, error.message);
+        res.status(500).json({ status: 'error', message: 'Lỗi server khi lấy dữ liệu từ Google.' });
     }
 });
 
@@ -73,13 +94,15 @@ app.post('/api/update-sheet', checkPermissions, async (req, res) => {
     try {
         const responseFromGoogle = await axios.post(SCRIPT_URL, req.body);
         const { sheetName } = req.body;
+        // Xóa cache của sheet vừa cập nhật để lần sau tải lại dữ liệu mới
         if (sheetName && cache[sheetName]) {
             console.log(`[Cache CLEAR] Xóa cache cho: ${sheetName}`);
             delete cache[sheetName];
         }
         res.json(responseFromGoogle.data);
     } catch (error) {
-        res.status(500).json({ message: 'Lỗi server khi cập nhật Google Sheet.' });
+        console.error('[Update Error] Lỗi khi cập nhật Google Sheet:', error.message);
+        res.status(500).json({ status: 'error', message: 'Lỗi server khi cập nhật Google Sheet.' });
     }
 });
 
