@@ -9,16 +9,19 @@ const GET_DATA_ENDPOINT = `${API_BASE_URL}/api/sheet-data`;
 const UPDATE_DATA_ENDPOINT = `${API_BASE_URL}/api/update-sheet`;
 
 // =================================================================
-// BIẾN TOÀN CỤC
+// BIẾN TOÀN CỤC VÀ CACHE
 // =================================================================
-let originalData = []; // Lưu trữ dữ liệu gốc để có thể hủy thay đổi
+// THAY ĐỔI 1: Sử dụng một đối tượng để lưu trữ dữ liệu cho nhiều tab
+let viewDataCache = {}; // Ví dụ: { Contact: { data: [...], headers: [...] }, Vendor: { ... } }
 let changesToSave = []; // Mảng chỉ lưu các ô đã thực sự thay đổi
+let currentView = ''; // Lưu trữ view đang hoạt động
 
 // =================================================================
 // KHỞI TẠO ỨNG DỤNG
 // =================================================================
 document.addEventListener("DOMContentLoaded", () => {
-  loadView('dashboard-main');
+  // Tải view mặc định là dashboard
+  loadView('dashboard-main'); 
   document.querySelectorAll(".sidebar-menu a").forEach(link => {
     link.addEventListener("click", (event) => {
       event.preventDefault();
@@ -38,81 +41,141 @@ function showUserEmail(email) {
     if(userEmailElement) userEmailElement.textContent = email || "Không xác định";
 }
 
+/**
+ * THAY ĐỔI 2: Logic load view hoàn toàn mới để cache giao diện
+ * Hàm này giờ đây sẽ ẩn/hiện các view đã tải, và chỉ tải mới khi cần.
+ */
 async function loadView(viewName) {
   const mainContent = document.getElementById("main-content");
-  mainContent.innerHTML = `<p class="main-loading">Đang tải trang ${viewName}...</p>`;
-  try {
-    const response = await fetch(`${viewName.toLowerCase()}.html`);
-    if (!response.ok) throw new Error(`Không thể tải ${viewName}.html.`);
-    mainContent.innerHTML = await response.text();
-    
-    // Sau khi tải HTML xong, nếu là trang Contact thì tải dữ liệu cho nó
-    if (viewName === 'Contact') {
-      await loadContactData();
+  const viewId = `view-${viewName}`;
+  currentView = viewName; // Cập nhật view hiện tại
+
+  // Ẩn tất cả các view con đang có
+  const childViews = mainContent.querySelectorAll('.view-container');
+  childViews.forEach(view => view.style.display = 'none');
+
+  let viewContainer = document.getElementById(viewId);
+
+  if (viewContainer) {
+    // Nếu view đã tồn tại, chỉ cần hiển thị nó
+    viewContainer.style.display = 'block';
+    console.log(`Hiển thị lại view đã cache: ${viewName}`);
+
+    // Và kiểm tra xem có dữ liệu mới không một cách "thầm lặng"
+    // Chỉ kiểm tra cho các view có dữ liệu (Contact, Vendor, v.v...)
+    if (viewName !== 'dashboard-main') {
+         await loadDataForView(viewName, false); // false = không bắt buộc render lại
     }
-  } catch (error) {
-    mainContent.innerHTML = `<p class="main-loading" style="color: red;">Lỗi: ${error.message}</p>`;
+
+  } else {
+    // Nếu view chưa tồn tại, tạo mới và tải nội dung
+    viewContainer = document.createElement('div');
+    viewContainer.id = viewId;
+    viewContainer.className = 'view-container';
+    viewContainer.innerHTML = `<p class="main-loading">Đang tải trang ${viewName}...</p>`;
+    mainContent.appendChild(viewContainer);
+    console.log(`Tải view lần đầu: ${viewName}`);
+
+    try {
+      // Tải file HTML tương ứng
+      const response = await fetch(`${viewName.toLowerCase()}.html`);
+      if (!response.ok) throw new Error(`Không thể tải ${viewName}.html.`);
+      viewContainer.innerHTML = await response.text();
+      
+      // Sau khi tải HTML, nếu là view cần dữ liệu (như Contact, Vendor) thì tải dữ liệu
+      // Các view này cần có một bảng với id là "table-grid-container" và tbody có id "table-body"
+      if (viewName === 'Contact' || viewName === 'Vendor') { // Mở rộng điều kiện này cho các tab khác
+        await loadDataForView(viewName, true); // true = bắt buộc render lần đầu
+      }
+    } catch (error) {
+      viewContainer.innerHTML = `<p class="main-loading" style="color: red;">Lỗi: ${error.message}</p>`;
+    }
   }
 }
 
 function handleMainContentClick(event) {
   const targetId = event.target.id;
-  if (targetId === 'btn-edit') enableEditingMode();
-  else if (targetId === 'btn-save') saveChanges();
-  else if (targetId === 'btn-cancel') cancelEditingMode();
+  if (targetId === 'btn-edit') enableEditingMode(currentView);
+  else if (targetId === 'btn-save') saveChanges(currentView);
+  else if (targetId === 'btn-cancel') cancelEditingMode(currentView);
 }
 
 // =================================================================
-// LOGIC CỤ THỂ CHO TRANG CONTACT
+// LOGIC TẢI VÀ HIỂN THỊ DỮ LIỆU CHUNG
 // =================================================================
 
 /**
- * *** THAY ĐỔI 1: Tải dữ liệu từ Express Server để tận dụng Caching ***
- * Tải và hiển thị dữ liệu Contact.
+ * THAY ĐỔI 3: Hàm tải dữ liệu chung cho mọi view
+ * @param {string} viewName - Tên của view (và cũng là tên Sheet).
+ * @param {boolean} forceRender - Nếu true, sẽ render lại bảng dù dữ liệu không mới.
  */
-async function loadContactData() {
-  const tableBody = document.getElementById("contact-table");
-  const editButton = document.getElementById("btn-edit");
-  if (!tableBody || !editButton) return;
-  tableBody.innerHTML = '<tr><td colspan="3">Đang tải dữ liệu...</td></tr>';
+async function loadDataForView(viewName, forceRender = false) {
+  const viewContainer = document.getElementById(`view-${viewName}`);
+  if (!viewContainer) return;
   
+  const tableBody = viewContainer.querySelector("tbody");
+  if (!tableBody) return;
+
+  // Hiển thị loading chỉ khi render lần đầu
+  if (forceRender) {
+    tableBody.innerHTML = '<tr><td colspan="99">Đang tải dữ liệu...</td></tr>';
+  }
+
   try {
-    // Gọi đến Express server thay vì Apps Script trực tiếp
-    const response = await fetch(`${GET_DATA_ENDPOINT}?sheetName=Contact`);
+    const response = await fetch(`${GET_DATA_ENDPOINT}?sheetName=${viewName}`);
     if (!response.ok) throw new Error("Lỗi mạng hoặc server không phản hồi.");
     
     const result = await response.json();
-    if(result.status !== 'success' || !result.data) {
+    if (result.status !== 'success' || !result.data) {
       throw new Error(result.message || "Không có dữ liệu để hiển thị.");
     }
     
-    console.log(`Dữ liệu được tải từ: ${result.source || 'google'}`); // Sẽ thấy 'cache' hoặc 'google'
-    originalData = result.data; // Dữ liệu đã là JSON, không cần parse lại
-    renderContactTable(result.data);
+    // Chỉ render lại bảng nếu là lần đầu (forceRender) hoặc nếu dữ liệu được lấy từ Google (không phải cache server)
+    if (forceRender || result.source === 'google') {
+        console.log(`Dữ liệu cho '${viewName}' được cập nhật từ '${result.source}'. Đang render lại bảng.`);
+        viewDataCache[viewName] = { data: result.data }; // Lưu dữ liệu mới vào cache
+        renderTable(viewName);
+        
+        // Sau khi render lại, nếu đang ở chế độ chỉnh sửa thì tắt đi để tránh lỗi
+        const editButton = document.getElementById('btn-edit');
+        if (editButton && editButton.style.display === 'none') {
+            cancelEditingMode(viewName);
+        }
+    } else {
+        console.log(`Dữ liệu cho '${viewName}' lấy từ '${result.source}'. Không cần render lại.`);
+    }
 
-    if (sessionStorage.getItem('userRole') === 'admin') {
+    // Hiển thị nút edit nếu là admin (luôn kiểm tra lại phòng trường hợp view được load từ cache)
+    const editButton = document.getElementById("btn-edit");
+    if (editButton && sessionStorage.getItem('userRole') === 'admin') {
       editButton.style.display = 'inline-block';
     }
+
   } catch (error) {
-    tableBody.innerHTML = `<tr><td colspan="3" style="color: red;">Lỗi tải dữ liệu: ${error.message}</td></tr>`;
+    if (tableBody) tableBody.innerHTML = `<tr><td colspan="99" style="color: red;">Lỗi tải dữ liệu: ${error.message}</td></tr>`;
   }
 }
 
 /**
- * Hiển thị dữ liệu lên bảng một cách linh hoạt.
+ * THAY ĐỔI 4: Hàm render bảng chung
+ * @param {string} viewName - Tên của view để tìm đúng container và dữ liệu trong cache.
  */
-function renderContactTable(data) {
-  const tableContainer = document.getElementById("contact-table-grid");
+function renderTable(viewName) {
+  const viewContainer = document.getElementById(`view-${viewName}`);
+  const tableContainer = viewContainer.querySelector(".contact-grid"); // Sử dụng class chung
   if (!tableContainer) return;
   const tableHead = tableContainer.querySelector("thead");
   const tableBody = tableContainer.querySelector("tbody");
   
   tableHead.innerHTML = "";
-  tableBody.innerHTML = ""; 
+  tableBody.innerHTML = "";
 
+  const data = viewDataCache[viewName]?.data;
   if (!data || data.length === 0) return;
 
   const headers = Object.keys(data[0]);
+  viewDataCache[viewName].headers = headers; // Lưu lại header để dùng sau
+
   const headerRow = document.createElement("tr");
   headers.forEach(headerText => {
       const th = document.createElement("th");
@@ -134,12 +197,22 @@ function renderContactTable(data) {
   });
 }
 
-function enableEditingMode() {
+
+// =================================================================
+// LOGIC CHỈNH SỬA, LƯU, HỦY
+// Các hàm này cần được điều chỉnh để hoạt động với view hiện tại
+// =================================================================
+
+function enableEditingMode(viewName) {
   document.getElementById('btn-edit').style.display = 'none';
   document.getElementById('btn-save').style.display = 'inline-block';
   document.getElementById('btn-cancel').style.display = 'inline-block';
 
-  document.querySelectorAll("#contact-table td").forEach(cell => {
+  // Chỉ bật chỉnh sửa cho bảng trong view đang hoạt động
+  const tableBody = document.querySelector(`#view-${viewName} tbody`);
+  if (!tableBody) return;
+
+  tableBody.querySelectorAll("td").forEach(cell => {
     cell.setAttribute("contenteditable", "true");
     cell.classList.add("editable-cell");
     cell.addEventListener('input', trackChange);
@@ -147,17 +220,22 @@ function enableEditingMode() {
   changesToSave = [];
 }
 
-function cancelEditingMode() {
+function cancelEditingMode(viewName) {
   document.getElementById('btn-edit').style.display = 'inline-block';
   document.getElementById('btn-save').style.display = 'none';
   document.getElementById('btn-cancel').style.display = 'none';
   
-  document.querySelectorAll("#contact-table td").forEach(cell => {
+  const tableBody = document.querySelector(`#view-${viewName} tbody`);
+  if (!tableBody) return;
+
+  tableBody.querySelectorAll("td").forEach(cell => {
     cell.setAttribute("contenteditable", "false");
     cell.classList.remove("editable-cell");
     cell.removeEventListener('input', trackChange);
   });
-  renderContactTable(originalData);
+
+  // Khôi phục dữ liệu từ cache thay vì tải lại
+  renderTable(viewName);
   changesToSave = [];
 }
 
@@ -167,21 +245,18 @@ function trackChange(event) {
     const columnName = cell.getAttribute('data-column-name');
     const value = cell.textContent;
 
-    const existingChangeIndex = changesToSave.findIndex(c => c.rowIndex === rowIndex && c.columnName === columnName);
+    const existingChangeIndex = changesToSave.findIndex(c => c.rowIndex == rowIndex && c.columnName === columnName);
     if (existingChangeIndex > -1) {
         changesToSave.splice(existingChangeIndex, 1);
     }
-    changesToSave.push({ rowIndex, columnName, value });
+    // Chuyển đổi rowIndex sang số nguyên để đảm bảo tính nhất quán
+    changesToSave.push({ rowIndex: parseInt(rowIndex), columnName, value });
 }
 
-/**
- * *** THAY ĐỔI 2: Gửi ID Token để Xác thực quyền trên Server ***
- * Gửi các thay đổi đã được ghi nhận lên Google Sheet.
- */
-async function saveChanges() {
+async function saveChanges(viewName) {
     if (changesToSave.length === 0) {
         alert("Không có thay đổi nào để lưu.");
-        cancelEditingMode();
+        cancelEditingMode(viewName);
         return;
     }
 
@@ -190,14 +265,13 @@ async function saveChanges() {
     saveButton.disabled = true;
 
     try {
-        // Lấy token xác thực mới nhất từ Firebase (hàm này được định nghĩa trong dashboard.html)
         const idToken = await window.getFreshIdToken();
         if (!idToken) {
             throw new Error("Không thể lấy thông tin người dùng. Vui lòng đăng nhập lại.");
         }
 
         const payload = { 
-            sheetName: 'Contact', // Gửi kèm tên sheet
+            sheetName: viewName, // Sử dụng tên view động
             updates: changesToSave 
         };
         
@@ -205,7 +279,6 @@ async function saveChanges() {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
-              // *** GỬI TOKEN LÊN SERVER ĐỂ XÁC THỰC ***
               'Authorization': `Bearer ${idToken}`
             },
             body: JSON.stringify(payload),
@@ -220,16 +293,17 @@ async function saveChanges() {
 
         if (result.status === 'success') {
             alert("Cập nhật thành công!");
-            await loadContactData(); // Tải lại dữ liệu mới nhất
+            // Tải lại dữ liệu cho view hiện tại, bắt buộc render để thấy thay đổi
+            await loadDataForView(viewName, true); 
         } else {
             throw new Error(result.message || "Lỗi không xác định từ server.");
         }
 
     } catch (error) {
         alert(`Lưu thất bại: ${error.message}`);
-        renderContactTable(originalData); // Khôi phục giao diện về trạng thái gốc
+        renderTable(viewName); // Khôi phục giao diện về trạng thái gốc từ cache
     } finally {
-        cancelEditingMode();
+        cancelEditingMode(viewName);
         saveButton.textContent = 'Lưu thay đổi';
         saveButton.disabled = false;
     }
