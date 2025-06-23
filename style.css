@@ -289,12 +289,15 @@ input[type="password"] {
   width: 20%; /* Cột Tên */
 }
 .contact-grid th:nth-child(2) {
-  width: 30%; /* Cột Email */
+  width: 20%; /* Cột Email */
 }
 .contact-grid th:nth-child(3) {
-  width: 50%; /* Cột Số điện thoại */
+  width: 30%; /* Cột Số điện thoại */
 }
 
+.contact-grid th:nth-child(4) {
+  width: 30%; /* Cột Quyền truy cập */
+}
 .contact-grid th {
   background: #f1f3f4;
   font-weight: 600;

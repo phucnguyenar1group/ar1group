@@ -72,7 +72,6 @@ async function loadView(viewName) {
     viewContainer = document.createElement('div');
     viewContainer.id = viewId;
     viewContainer.className = 'view-container';
-    viewContainer.innerHTML = `<p class="main-loading">Đang tải trang ${viewName}...</p>`;
     mainContent.appendChild(viewContainer);
     console.log(`Tải view lần đầu: ${viewName}`);
 
