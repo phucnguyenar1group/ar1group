@@ -162,10 +162,8 @@ async function loadDataForView(viewName, forceRender = false) {
  */
 function renderTable(viewName) {
   const viewContainer = document.getElementById(`view-${viewName}`);
-  if (!viewContainer) return;
-
   const tableBody = viewContainer.querySelector("tbody");
-  if (!tableBody) return;
+  if (!viewContainer || !tableBody) return;
 
   // Xóa nội dung cũ của thân bảng, giữ nguyên tiêu đề
   tableBody.innerHTML = "";
