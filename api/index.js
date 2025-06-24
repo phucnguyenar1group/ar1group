@@ -21,7 +21,7 @@ if (!admin.apps.length) {
 const app = express();
 
 // --- 3. THIẾT LẬP CACHE VÀ MIDDLEWARE ---
-const CACHE_DURATION_SECONDS = 300;
+const CACHE_DURATION_SECONDS = 30;
 const cache = {};
 const corsOptions = { origin: 'https://ar1group.web.app' }; // Thay bằng domain của bạn
 app.use(cors(corsOptions));

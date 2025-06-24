@@ -147,7 +147,7 @@ async function loadDataForView(viewName, forceRender = false) {
 
     // Hiển thị nút edit nếu là admin (luôn kiểm tra lại phòng trường hợp view được load từ cache)
     const editButton = document.getElementById("btn-edit");
-    if (editButton && sessionStorage.getItem('userRole') === 'admin') {
+    if (editButton ) {
       editButton.style.display = 'inline-block';
     }
 
@@ -156,9 +156,8 @@ async function loadDataForView(viewName, forceRender = false) {
   }
 }
 
-/**
+/*
  * THAY ĐỔI 4: Hàm render bảng chung
- * @param {string} viewName - Tên của view để tìm đúng container và dữ liệu trong cache.
  */
 function renderTable(viewName) {
   const viewContainer = document.getElementById(`view-${viewName}`);
@@ -184,6 +183,7 @@ function renderTable(viewName) {
   data.forEach((row, rowIndex) => {
     const tr = document.createElement("tr");
     tr.setAttribute('data-row-index', rowIndex);
+
     headers.forEach(header => {
         const td = document.createElement("td");
         td.setAttribute('data-column-name', header);
@@ -214,10 +214,12 @@ function enableEditingMode(viewName) {
   const tableBody = document.querySelector(`#view-${viewName} tbody`);
   if (!tableBody) return;
 
-  tableBody.querySelectorAll("td").forEach(cell => {
-    cell.setAttribute("contenteditable", "true");
-    cell.classList.add("editable-cell");
-    cell.addEventListener('input', trackChange);
+  tableBody.querySelectorAll("tr").forEach(row => {
+      row.querySelectorAll("td:not(:last-child)").forEach(cell => {
+          cell.setAttribute("contenteditable", "true");
+          cell.classList.add("editable-cell");
+          cell.addEventListener('input', trackChange);
+      });
   });
   changesToSave = [];
 }
@@ -226,17 +228,6 @@ function cancelEditingMode(viewName) {
   document.getElementById('btn-edit').style.display = 'inline-block';
   document.getElementById('btn-save').style.display = 'none';
   document.getElementById('btn-cancel').style.display = 'none';
-  
-  const tableBody = document.querySelector(`#view-${viewName} tbody`);
-  if (!tableBody) return;
-
-  tableBody.querySelectorAll("td").forEach(cell => {
-    cell.setAttribute("contenteditable", "false");
-    cell.classList.remove("editable-cell");
-    cell.removeEventListener('input', trackChange);
-  });
-
-  // Khôi phục dữ liệu từ cache thay vì tải lại
   renderTable(viewName);
   changesToSave = [];
 }
