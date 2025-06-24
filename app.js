@@ -162,34 +162,33 @@ async function loadDataForView(viewName, forceRender = false) {
  */
 function renderTable(viewName) {
   const viewContainer = document.getElementById(`view-${viewName}`);
-  const tableContainer = viewContainer.querySelector(".contact-grid"); // Sử dụng class chung
-  if (!tableContainer) return;
-  const tableHead = tableContainer.querySelector("thead");
-  const tableBody = tableContainer.querySelector("tbody");
-  
-  tableHead.innerHTML = "";
+  if (!viewContainer) return;
+
+  const tableBody = viewContainer.querySelector("tbody");
+  if (!tableBody) return;
+
+  // Xóa nội dung cũ của thân bảng, giữ nguyên tiêu đề
   tableBody.innerHTML = "";
 
   const data = viewDataCache[viewName]?.data;
-  if (!data || data.length === 0) return;
+  if (!data || data.length === 0) {
+      tableBody.innerHTML = '<tr><td colspan="4">Không có dữ liệu để hiển thị.</td></tr>';
+      return;
+  }
 
-  const headers = Object.keys(data[0]);
-  viewDataCache[viewName].headers = headers; // Lưu lại header để dùng sau
+  // THAY ĐỔI: Định nghĩa thứ tự các cột để khớp với a header tĩnh trong HTML.
+  // Quan trọng: Thứ tự các key trong mảng này PHẢI khớp với thứ tự các cột <th> trong contact.html
+  const headers = ['Tên', 'Email', 'Số điện thoại', 'Quyền truy cập'];
+  viewDataCache[viewName].headers = headers; // Lưu lại header để dùng cho việc lưu thay đổi
 
-  const headerRow = document.createElement("tr");
-  headers.forEach(headerText => {
-      const th = document.createElement("th");
-      th.textContent = headerText;
-      headerRow.appendChild(th);
-  });
-  tableHead.appendChild(headerRow);
-  
+  // Lặp qua dữ liệu và tạo các hàng cho tbody
   data.forEach((row, rowIndex) => {
     const tr = document.createElement("tr");
     tr.setAttribute('data-row-index', rowIndex);
     headers.forEach(header => {
         const td = document.createElement("td");
         td.setAttribute('data-column-name', header);
+        // Lấy giá trị từ object 'row' dựa trên key là 'header'
         td.textContent = row[header] || "";
         tr.appendChild(td);
     });
