@@ -1,12 +1,3 @@
-<div style="display: flex; justify-content: flex-end; align-items: center;">
-    <div id="edit-controls">
-        <!-- Các nút này sẽ được hiển thị/ẩn bởi app.js -->
-        <button id="btn-edit" class="btn-secondary" style="display: none;">Chỉnh sửa</button>
-        <button id="btn-save" class="btn-primary" style="display: none;">Lưu</button>
-        <button id="btn-cancel" class="btn-secondary" style="display: none;">Hủy</button>
-    </div>
-</div>
-
 <!-- Thêm class và id để dễ dàng thao tác từ JS -->
 <div class="table-container">
     <table class="contact-grid" id="contact-table-grid">
@@ -15,7 +6,16 @@
           <th>Tên</th>
           <th>Email</th>
           <th>Số điện thoại</th>
-          <th>Quyền truy cập</th>
+          <th>Chức vụ</th>
+          <th>
+            <span>Quyền truy cập</span>
+          <div id="edit-controls">
+        <!-- Các nút này sẽ được hiển thị/ẩn bởi app.js -->
+            <button id="btn-edit" class="btn-secondary" style="display: none;">Chỉnh sửa</button>
+            <button id="btn-save" class="btn-primary" style="display: none;">Lưu</button>
+            <button id="btn-cancel" class="btn-secondary" style="display: none;">Hủy</button>
+          </div>
+          </th>
         </tr>
       </thead>
       <tbody id="contact-table">

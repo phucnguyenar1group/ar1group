@@ -266,9 +266,9 @@ input[type="password"] {
 }
 
 .contact-grid {
-  width: 100%;
+  /* width: 100%; */
   border-collapse: collapse;
-  margin-top: 16px;
+  margin-top: 20px;
   background: #fff;
   border-radius: 12px;
   overflow: hidden;
@@ -286,17 +286,19 @@ input[type="password"] {
 /* Định độ rộng cụ thể cho từng cột trong header */
 /* Bạn có thể tùy chỉnh các con số % này */
 .contact-grid th:nth-child(1) {
-  width: 20%; /* Cột Tên */
+  width: 100px; /* Cột Tên */
 }
 .contact-grid th:nth-child(2) {
-  width: 20%; /* Cột Email */
+  width: 200px; /* Cột Email */
 }
 .contact-grid th:nth-child(3) {
-  width: 30%; /* Cột Số điện thoại */
+  width: 200px; /* Cột Số điện thoại */
 }
-
 .contact-grid th:nth-child(4) {
-  width: 30%; /* Cột Quyền truy cập */
+  width: 200px; /* Cột Chức vụ */
+}
+.contact-grid th:nth-child(5) {
+  width: 200px; /*Cột Quyền truy cập */
 }
 .contact-grid th {
   background: #f1f3f4;
