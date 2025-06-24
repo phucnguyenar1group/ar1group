@@ -172,7 +172,7 @@ function renderTable(viewName) {
 
   const data = viewDataCache[viewName]?.data;
   if (!data || data.length === 0) {
-      tableBody.innerHTML = '<tr><td colspan="4">Không có dữ liệu để hiển thị.</td></tr>';
+      tableBody.innerHTML = '<tr><td colspan="6">Không có dữ liệu để hiển thị.</td></tr>';
       return;
   }
 
