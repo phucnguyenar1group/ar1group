@@ -285,21 +285,18 @@ input[type="password"] {
 
 /* Định độ rộng cụ thể cho từng cột trong header */
 /* Bạn có thể tùy chỉnh các con số % này */
-.contact-grid th:nth-child(1) {
-  width: 100px; /* Cột Tên */
+.contact-grid th:nth-child(1) { width: 100px; /* Cột Tên */}
+.contact-grid th:nth-child(2) { width: 200px; /* Cột Email */}
+.contact-grid th:nth-child(3) { width: 200px; /* Cột Số điện thoại */}
+.contact-grid th:nth-child(4) { width: 200px; /* Cột Chức vụ */}
+.contact-grid th:nth-child(5) { width: 200px; /*Cột Quyền truy cập */}
+
+/* Định dạng cho cột thứ 6 chứa các nút */
+.contact-grid th.actions-column {
+  width: 210px; /* Độ rộng cố định cho cột nút */
+  text-align: center;
 }
-.contact-grid th:nth-child(2) {
-  width: 200px; /* Cột Email */
-}
-.contact-grid th:nth-child(3) {
-  width: 200px; /* Cột Số điện thoại */
-}
-.contact-grid th:nth-child(4) {
-  width: 200px; /* Cột Chức vụ */
-}
-.contact-grid th:nth-child(5) {
-  width: 200px; /*Cột Quyền truy cập */
-}
+
 .contact-grid th {
   background: #f1f3f4;
   font-weight: 600;

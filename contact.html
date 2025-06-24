@@ -1,20 +1,23 @@
-<!-- Thêm class và id để dễ dàng thao tác từ JS -->
+<!-- ./contact.html -->
+
 <div class="table-container">
     <table class="contact-grid" id="contact-table-grid">
       <thead>
-         <tr>
+        <tr>
+          <!-- 5 cột dữ liệu -->
           <th>Tên</th>
           <th>Email</th>
           <th>Số điện thoại</th>
           <th>Chức vụ</th>
           <th>Quyền truy cập</th>
-          <th>
+
+          <!-- CỘT THỨ 6: Dành riêng cho các nút, có class để CSS nhận dạng -->
+          <th class="actions-column">
             <div id="edit-controls">
-            <!-- Các nút này sẽ được hiển thị/ẩn bởi app.js -->
-            <button id="btn-edit" class="btn-secondary" style="display: none;">Chỉnh sửa</button>
-            <button id="btn-save" class="btn-primary" style="display: none;">Lưu</button>
-            <button id="btn-cancel" class="btn-secondary" style="display: none;">Hủy</button>
-          </div>
+                <button id="btn-edit" class="btn btn-secondary" style="display: none;">Sửa</button>
+                <button id="btn-save" class="btn btn-primary" style="display: none;">Lưu</button>
+                <button id="btn-cancel" class="btn btn-secondary" style="display: none;">Hủy</button>
+            </div>
           </th>
         </tr>
       </thead>
@@ -23,4 +26,3 @@
       </tbody>
     </table>
 </div>
-
