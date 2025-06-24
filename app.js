@@ -178,7 +178,7 @@ function renderTable(viewName) {
 
   // THAY ĐỔI: Định nghĩa thứ tự các cột để khớp với a header tĩnh trong HTML.
   // Quan trọng: Thứ tự các key trong mảng này PHẢI khớp với thứ tự các cột <th> trong contact.html
-  const headers = ['Tên', 'Email', 'Số điện thoại', 'Quyền truy cập'];
+  const headers = ['Tên', 'Email', 'Số điện thoại', 'Chức vụ', 'Quyền truy cập'];
   viewDataCache[viewName].headers = headers; // Lưu lại header để dùng cho việc lưu thay đổi
 
   // Lặp qua dữ liệu và tạo các hàng cho tbody
