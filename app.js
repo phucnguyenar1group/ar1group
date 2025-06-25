@@ -7,6 +7,10 @@ import { getAuth, signOut, onAuthStateChanged } from "https://www.gstatic.com/fi
 const API_BASE_URL = "https://ar1group.vercel.app";
 const GET_DATA_ENDPOINT = `${API_BASE_URL}/api/sheet-data`;
 const ADD_PRODUCT_ENDPOINT = `${API_BASE_URL}/api/add-product`;
+const UPDATE_DATA_ENDPOINT = `${API_BASE_URL}/api/update-sheet`;
+
+// Danh sách các view chính cần được tải dữ liệu
+const DATA_VIEWS = ['Contact', 'Vendor', 'Product', 'Marketing', 'Shipment'];
 
 // =================================================================
 // KHỞI TẠO FIREBASE
@@ -26,6 +30,7 @@ const auth = getAuth(app);
 let viewDataCache = {};
 let paginationCache = {};
 let currentView = '';
+let isPreloading = false;
 
 // =================================================================
 // KHỞI TẠO ỨNG DỤNG VÀ XÁC THỰC
@@ -35,11 +40,11 @@ document.addEventListener("DOMContentLoaded", () => {
         if (user) {
             setupUserSession(user);
             initializeNavigation();
-            loadView('dashboard-main');
+            preloadAllData(); // Tải trước toàn bộ dữ liệu sau khi đăng nhập
         } else {
             sessionStorage.clear();
             if (window.location.pathname !== "/index.html" && window.location.pathname !== "/") {
-                 window.location.href = "index.html";
+                window.location.href = "index.html";
             }
         }
     });
@@ -56,12 +61,12 @@ function initializeNavigation() {
         link.addEventListener("click", (event) => {
             event.preventDefault();
             const viewName = link.getAttribute("data-view");
-            if (viewName) loadView(viewName);
+            if (viewName) switchView(viewName);
         });
     });
     const logoutBtn = document.getElementById('logout-btn');
-    if(logoutBtn) {
-      logoutBtn.onclick = () => signOut(auth).catch(error => alert(`Đăng xuất thất bại: ${error.message}`));
+    if (logoutBtn) {
+        logoutBtn.onclick = () => signOut(auth).catch(error => alert(`Đăng xuất thất bại: ${error.message}`));
     }
 }
 
@@ -73,64 +78,92 @@ window.getFreshIdToken = async () => {
 };
 
 // =================================================================
-// LOGIC CHÍNH: TẢI VIEW VÀ DỮ LIỆU (ĐÃ SỬA LỖI)
+// LOGIC TẢI DỮ LIỆU VÀ QUẢN LÝ VIEW
 // =================================================================
 
 /**
- * Hàm tải view đã được viết lại để khắc phục lỗi mất nội dung.
- * @param {string} viewName - Tên của view để tải.
+ * Tải trước dữ liệu cho tất cả các view trong danh sách DATA_VIEWS.
+ * @param {boolean} forceRefetch - Nếu true, sẽ bỏ qua cache và tải lại từ server.
  */
-async function loadView(viewName) {
+async function preloadAllData(forceRefetch = false) {
+    if (isPreloading) return;
+    isPreloading = true;
+    console.log("Bắt đầu tải trước dữ liệu cho tất cả các tab...");
+
+    // Sử dụng Promise.all để tải song song
+    const preloadPromises = DATA_VIEWS.map(viewName => loadView(viewName, forceRefetch));
+    
+    // Tải thêm view dashboard-main (không có dữ liệu)
+    preloadPromises.push(loadView('dashboard-main'));
+
+    await Promise.all(preloadPromises);
+    
+    isPreloading = false;
+    console.log("Tải trước dữ liệu hoàn tất.");
+    
+    // Sau khi tải xong, hiển thị view mặc định
+    switchView('dashboard-main');
+}
+
+/**
+ * Tải HTML và dữ liệu cho một view cụ thể nếu chưa có.
+ * @param {string} viewName - Tên của view.
+ * @param {boolean} forceRefetch - Nếu true, sẽ tải lại dữ liệu từ server.
+ */
+async function loadView(viewName, forceRefetch = false) {
     const mainContent = document.getElementById("main-content");
     const viewId = `view-${viewName}`;
-    currentView = viewName;
+    let viewContainer = document.getElementById(viewId);
 
-    // Đầu tiên, tìm view mục tiêu
-    let targetView = document.getElementById(viewId);
-
-    // Nếu view chưa tồn tại, hãy tạo và tải nội dung cho nó
-    if (!targetView) {
-        targetView = document.createElement('div');
-        targetView.id = viewId;
-        targetView.className = 'view-container';
-        targetView.style.display = 'none'; // Bắt đầu ở trạng thái ẩn
-        mainContent.appendChild(targetView);
-
+    // Nếu view chưa tồn tại trong DOM, tạo mới
+    if (!viewContainer) {
+        viewContainer = document.createElement('div');
+        viewContainer.id = viewId;
+        viewContainer.className = 'view-container';
+        viewContainer.style.display = 'none'; // Giữ trạng thái ẩn
+        mainContent.appendChild(viewContainer);
+        
         try {
             const response = await fetch(`${viewName.toLowerCase()}.html`);
-            if (!response.ok) throw new Error(`Không thể tải ${viewName}.html (lỗi 404 hoặc lỗi server).`);
-            
-            targetView.innerHTML = await response.text();
-
-            // Nếu là view cần dữ liệu, tải dữ liệu lần đầu
-            if (['Contact', 'Vendor', 'Product', 'Marketing', 'Shipment'].includes(viewName)) {
-                await loadDataForView(viewName, 1, true);
-            }
-            // Nếu là view Product, thiết lập modal
+            if (!response.ok) throw new Error(`Không thể tải ${viewName}.html.`);
+            viewContainer.innerHTML = await response.text();
             if (viewName === 'Product') {
                 setupAddProductModal();
             }
         } catch (error) {
-            targetView.innerHTML = `<p style="color: red;">Lỗi tải view: ${error.message}</p>`;
+            viewContainer.innerHTML = `<p style="color: red;">Lỗi tải view ${viewName}: ${error.message}</p>`;
         }
     }
 
-    // Sau khi chắc chắn view đã tồn tại, lặp qua tất cả các view để ẩn/hiện
-    mainContent.querySelectorAll('.view-container').forEach(view => {
-        view.style.display = view.id === viewId ? 'block' : 'none';
+    // Nếu view này cần dữ liệu và (chưa có cache hoặc bị ép tải lại)
+    if (DATA_VIEWS.includes(viewName) && (!viewDataCache[viewName] || forceRefetch)) {
+        await loadDataForView(viewName, 1);
+    }
+}
+
+/**
+ * Chỉ chuyển đổi hiển thị giữa các view đã được tải.
+ * @param {string} viewName - Tên của view để hiển thị.
+ */
+function switchView(viewName) {
+    currentView = viewName;
+    document.querySelectorAll('#main-content .view-container').forEach(view => {
+        view.style.display = view.id === `view-${viewName}` ? 'block' : 'none';
     });
 }
 
-
-// Các hàm còn lại giữ nguyên như cũ
-async function loadDataForView(viewName, page = 1, forceRender = false) {
+/**
+ * Tải dữ liệu từ API và render bảng.
+ * @param {string} viewName - Tên view.
+ * @param {number} page - Số trang cần tải.
+ */
+async function loadDataForView(viewName, page = 1) {
     const viewContainer = document.getElementById(`view-${viewName}`);
-    if (!viewContainer) return;
-    const tableBody = viewContainer.querySelector("tbody");
-    if (!tableBody) return;
-    if (forceRender) {
-        tableBody.innerHTML = `<tr><td colspan="99">Đang tải dữ liệu...</td></tr>`;
-    }
+    const tableBody = viewContainer?.querySelector("tbody");
+    if (!tableBody) return; // Không làm gì nếu view không có bảng
+
+    tableBody.innerHTML = `<tr><td colspan="99">Đang tải dữ liệu...</td></tr>`;
+
     try {
         const response = await fetch(`${GET_DATA_ENDPOINT}?sheetName=${viewName}&page=${page}&limit=20`);
         if (!response.ok) throw new Error("Lỗi mạng hoặc server không phản hồi.");
@@ -138,21 +171,27 @@ async function loadDataForView(viewName, page = 1, forceRender = false) {
         if (result.status !== 'success' || !result.data) {
             throw new Error(result.message || "Không có dữ liệu để hiển thị.");
         }
-        viewDataCache[viewName] = { data: result.data };
+        
+        viewDataCache[viewName] = result.data; // Lưu dữ liệu vào cache
         paginationCache[viewName] = result.pagination;
+        
         renderTable(viewName);
         renderPaginationControls(viewName);
     } catch (error) {
-        if (tableBody) tableBody.innerHTML = `<tr><td colspan="99" style="color: red;">Lỗi tải dữ liệu: ${error.message}</td></tr>`;
+        tableBody.innerHTML = `<tr><td colspan="99" style="color: red;">Lỗi tải dữ liệu: ${error.message}</td></tr>`;
     }
 }
+
+// =================================================================
+// CÁC HÀM RENDER (Giữ nguyên)
+// =================================================================
 
 function renderTable(viewName) {
     const viewContainer = document.getElementById(`view-${viewName}`);
     const tableBody = viewContainer.querySelector("tbody");
     if (!tableBody) return;
     tableBody.innerHTML = "";
-    const data = viewDataCache[viewName]?.data;
+    const data = viewDataCache[viewName];
     const colspan = viewContainer.querySelectorAll("thead th").length || 1;
     if (!data || data.length === 0) {
         tableBody.innerHTML = `<tr><td colspan="${colspan}">Không có dữ liệu để hiển thị.</td></tr>`;
@@ -241,21 +280,27 @@ function renderPaginationControls(viewName) {
 }
 
 window.changePage = (viewName, page) => {
-    loadDataForView(viewName, page, true);
+    loadDataForView(viewName, page);
 };
 
+// =================================================================
+// HÀM XỬ LÝ FORM (Cập nhật)
+// =================================================================
+
 function setupAddProductModal() {
-    const viewContainer = document.getElementById(`view-${currentView}`);
+    const viewContainer = document.getElementById(`view-Product`);
+    if (!viewContainer) return;
+
     const modal = viewContainer.querySelector('#add-product-modal');
     const btn = viewContainer.querySelector('#btn-add-product');
     const span = viewContainer.querySelector('.close-button');
     const form = viewContainer.querySelector('#add-product-form');
+    
     if (!modal || !btn || !span || !form) return;
-    btn.onclick = () => { modal.style.display = 'block'; };
+    
+    btn.onclick = () => { modal.style.display = 'flex'; }; // Dùng flex để căn giữa
     span.onclick = () => { modal.style.display = 'none'; };
-    window.addEventListener('click', (event) => {
-        if (event.target == modal) modal.style.display = 'none';
-    });
+    
     form.onsubmit = async (event) => {
         event.preventDefault();
         const submitButton = form.querySelector('button[type="submit"]');
@@ -266,9 +311,7 @@ function setupAddProductModal() {
             const file = fileInput.files[0];
             let imageFilePayload = null;
             if (file) {
-                if (file.size > 4.5 * 1024 * 1024) {
-                    throw new Error("Ảnh quá lớn. Vui lòng chọn ảnh có kích thước dưới 4.5 MB.");
-                }
+                if (file.size > 4.5 * 1024 * 1024) throw new Error("Ảnh quá lớn. Vui lòng chọn ảnh dưới 4.5 MB.");
                 const base64Data = await toBase64(file);
                 imageFilePayload = {
                     base64Data: base64Data.split(',')[1],
@@ -279,17 +322,12 @@ function setupAddProductModal() {
             const formData = new FormData(form);
             const productData = {};
             for (let [key, value] of formData.entries()) {
-                if (key !== 'PHOTO') {
-                    productData[key] = value;
-                }
+                if (key !== 'PHOTO') productData[key] = value;
             }
             const idToken = await window.getFreshIdToken();
             const response = await fetch(ADD_PRODUCT_ENDPOINT, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${idToken}`
-                },
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${idToken}` },
                 body: JSON.stringify({
                     action: 'addProduct',
                     sheetName: 'Product',
@@ -299,12 +337,14 @@ function setupAddProductModal() {
             });
             const result = await response.json();
             if (!response.ok || result.status !== 'success') {
-                 throw new Error(result.message || "Có lỗi xảy ra từ server.");
+                throw new Error(result.message || "Có lỗi từ server.");
             }
             alert('Thêm sản phẩm thành công!');
             modal.style.display = 'none';
             form.reset();
-            loadDataForView('Product', 1, true);
+            await preloadAllData(true); // Tải lại toàn bộ dữ liệu
+            switchView('Product'); // Quay lại tab Product
+
         } catch (error) {
             alert(`Lỗi: ${error.message}`);
         } finally {
