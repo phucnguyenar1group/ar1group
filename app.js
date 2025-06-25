@@ -86,41 +86,35 @@ async function activateView(viewName) {
     const mainContent = document.getElementById("main-content");
     const viewId = `view-${viewName}`;
     let viewContainer = document.getElementById(viewId);
-    let isNewlyLoaded = false;
 
     // 1. Ẩn tất cả các view khác trước
     document.querySelectorAll('#main-content .view-container').forEach(view => {
-        if (view.id !== viewId) {
-            view.style.display = 'none';
-        }
+        view.style.display = 'none';
     });
 
     // 2. Nếu view chưa tồn tại trong DOM, tiến hành tải lần đầu.
     if (!viewContainer) {
         console.log(`View '${viewName}' chưa tồn tại. Bắt đầu tải...`);
-        isNewlyLoaded = true;
+        
         viewContainer = document.createElement('div');
         viewContainer.id = viewId;
         viewContainer.className = 'view-container';
         // Hiển thị thông báo tải ngay lập tức
         viewContainer.innerHTML = `<p style="padding: 24px;">Đang tải nội dung cho ${viewName}...</p>`;
         mainContent.appendChild(viewContainer);
-    }
+        viewContainer.style.display = 'block'; // Hiển thị ngay
+        currentView = viewName;
 
-    // 3. Hiển thị view mục tiêu
-    viewContainer.style.display = 'block';
-    currentView = viewName;
-
-    // 4. Nếu là view mới được tạo, nạp nội dung cho nó
-    if (isNewlyLoaded) {
         try {
             const response = await fetch(`${viewName.toLowerCase()}.html`);
-            if (!response.ok) throw new Error(`Không thể tải file ${viewName}.html. (Lỗi 404)`);
+            if (!response.ok) throw new Error(`Không thể tải file ${viewName}.html. (Vui lòng kiểm tra lại xem file đã được deploy chưa)`);
+            
+            // Tải xong HTML, điền vào container
             viewContainer.innerHTML = await response.text();
 
-            // Nếu là view cần dữ liệu, gọi hàm tải dữ liệu
+            // Nếu là view cần dữ liệu, gọi hàm tải dữ liệu và render
             if (DATA_VIEWS.includes(viewName)) {
-                await loadDataForView(viewName, 1, true); // forceRender = true để điền "Đang tải dữ liệu"
+                await loadDataForView(viewName, 1, true); // forceRender = true để hiện "Đang tải..."
             }
             
             // Thiết lập các sự kiện/modal cụ thể cho view sau khi HTML được tải
@@ -130,22 +124,28 @@ async function activateView(viewName) {
         } catch (error) {
             viewContainer.innerHTML = `<p style="color: red; padding: 24px;">Lỗi tải view ${viewName}: ${error.message}</p>`;
         }
+    } else {
+        // 3. Nếu view đã tồn tại, chỉ cần hiển thị nó
+        console.log(`View '${viewName}' đã tồn tại. Chỉ hiển thị.`);
+        viewContainer.style.display = 'block';
+        currentView = viewName;
     }
 }
+
 
 /**
  * Tải dữ liệu từ API và render bảng cho một view cụ thể.
  * @param {string} viewName - Tên view.
  * @param {number} page - Số trang cần tải.
- * @param {boolean} forceRender - Nếu true, sẽ hiển thị "Đang tải dữ liệu"
+ * @param {boolean} isFirstLoad - Nếu true, sẽ hiển thị "Đang tải dữ liệu"
  */
-async function loadDataForView(viewName, page = 1, forceRender = false) {
+async function loadDataForView(viewName, page = 1, isFirstLoad = false) {
     const viewContainer = document.getElementById(`view-${viewName}`);
     const tableBody = viewContainer?.querySelector("tbody");
     if (!tableBody) return;
 
-    // Hiển thị "Đang tải dữ liệu" nếu là lần render đầu tiên
-    if(forceRender) {
+    // Hiển thị "Đang tải dữ liệu" nếu là lần render đầu tiên hoặc khi chuyển trang
+    if (isFirstLoad) {
         tableBody.innerHTML = `<tr><td colspan="99">Đang tải dữ liệu...</td></tr>`;
     }
 
@@ -262,6 +262,7 @@ function renderPaginationControls(viewName, pagination) {
 }
 
 window.changePage = (viewName, page) => {
+    // Khi chuyển trang, ta ép render lại phần thân bảng
     loadDataForView(viewName, page, true);
 };
 
@@ -324,7 +325,7 @@ function setupAddProductModal() {
             alert('Thêm sản phẩm thành công!');
             modal.style.display = 'none';
             form.reset();
-            // Chỉ tải lại dữ liệu cho tab Product để làm mới
+            // Tải lại dữ liệu cho tab Product để làm mới
             await loadDataForView('Product', 1, true);
 
         } catch (error) {
