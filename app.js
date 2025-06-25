@@ -7,9 +7,8 @@ import { getAuth, signOut, onAuthStateChanged } from "https://www.gstatic.com/fi
 const API_BASE_URL = "https://ar1group.vercel.app";
 const GET_DATA_ENDPOINT = `${API_BASE_URL}/api/sheet-data`;
 const ADD_PRODUCT_ENDPOINT = `${API_BASE_URL}/api/add-product`;
-const UPDATE_DATA_ENDPOINT = `${API_BASE_URL}/api/update-sheet`;
 
-// Danh sách các view chính cần được tải dữ liệu
+// Danh sách các view có dữ liệu cần tải từ Sheet
 const DATA_VIEWS = ['Contact', 'Vendor', 'Product', 'Marketing', 'Shipment'];
 
 // =================================================================
@@ -25,12 +24,11 @@ if (!getApps().length) {
 const auth = getAuth(app);
 
 // =================================================================
-// BIẾN TOÀN CỤC VÀ CACHE
+// BIẾN TOÀN CỤC
 // =================================================================
 let viewDataCache = {};
 let paginationCache = {};
 let currentView = '';
-let isPreloading = false;
 
 // =================================================================
 // KHỞI TẠO ỨNG DỤNG VÀ XÁC THỰC
@@ -40,7 +38,8 @@ document.addEventListener("DOMContentLoaded", () => {
         if (user) {
             setupUserSession(user);
             initializeNavigation();
-            preloadAllViewsAndData(); // Tải trước toàn bộ dữ liệu sau khi đăng nhập
+            // Tải view mặc định ban đầu
+            activateView('dashboard-main');
         } else {
             sessionStorage.clear();
             if (window.location.pathname !== "/index.html" && window.location.pathname !== "/") {
@@ -61,7 +60,7 @@ function initializeNavigation() {
         link.addEventListener("click", (event) => {
             event.preventDefault();
             const viewName = link.getAttribute("data-view");
-            if (viewName) switchView(viewName);
+            if (viewName) activateView(viewName); // Thay đổi: gọi activateView
         });
     });
     const logoutBtn = document.getElementById('logout-btn');
@@ -78,66 +77,51 @@ window.getFreshIdToken = async () => {
 };
 
 // =================================================================
-// LOGIC TẢI DỮ LIỆU VÀ QUẢN LÝ VIEW (ĐÃ SỬA LỖI)
+// LOGIC QUẢN LÝ VIEW (Load on demand)
 // =================================================================
 
 /**
- * Tải trước cấu trúc HTML và dữ liệu cho tất cả các view.
- * @param {boolean} forceRefetch - Nếu true, sẽ bỏ qua cache và tải lại dữ liệu từ server.
+ * Kích hoạt một view. Sẽ tải nếu chưa có, hoặc chỉ hiển thị nếu đã có.
+ * @param {string} viewName - Tên của view để kích hoạt.
  */
-async function preloadAllViewsAndData(forceRefetch = false) {
-    if (isPreloading) return;
-    isPreloading = true;
-    console.log("Bắt đầu tải trước cho tất cả các tab...");
-
-    // Phase 1: Tạo cấu trúc HTML cho tất cả các view.
-    const viewCreationPromises = [...DATA_VIEWS, 'dashboard-main'].map(viewName => createViewStructure(viewName));
-    await Promise.all(viewCreationPromises);
-    console.log("Tất cả cấu trúc view đã sẵn sàng.");
-
-    // Phase 2: Tải dữ liệu cho các view cần thiết.
-    const dataFetchPromises = DATA_VIEWS.map(viewName => {
-        if (forceRefetch || !viewDataCache[viewName]) {
-            return loadDataForView(viewName, 1);
-        }
-        return Promise.resolve();
-    });
-    await Promise.all(dataFetchPromises);
-    
-    isPreloading = false;
-    console.log("Tải trước dữ liệu hoàn tất.");
-    
-    // Hiển thị view mặc định sau khi mọi thứ sẵn sàng
-    switchView('dashboard-main');
-}
-
-/**
- * Tạo cấu trúc HTML cho một view nếu nó chưa tồn tại trong DOM.
- * @param {string} viewName - Tên của view.
- */
-async function createViewStructure(viewName) {
+async function activateView(viewName) {
     const mainContent = document.getElementById("main-content");
     const viewId = `view-${viewName}`;
-    if (document.getElementById(viewId)) return; // Thoát nếu đã tồn tại
+    let viewContainer = document.getElementById(viewId);
 
-    const viewContainer = document.createElement('div');
-    viewContainer.id = viewId;
-    viewContainer.className = 'view-container';
-    viewContainer.style.display = 'none'; // Luôn ẩn khi mới tạo
-    mainContent.appendChild(viewContainer);
-    
-    try {
-        const response = await fetch(`${viewName.toLowerCase()}.html`);
-        if (!response.ok) throw new Error(`Không thể tải ${viewName}.html.`);
-        viewContainer.innerHTML = await response.text();
-        
-        // Thiết lập các sự kiện/modal cụ thể cho view
-        if (viewName === 'Product') {
-            setupAddProductModal();
+    // Nếu view chưa tồn tại trong DOM, tiến hành tải lần đầu.
+    if (!viewContainer) {
+        console.log(`View '${viewName}' chưa tồn tại. Bắt đầu tải...`);
+        viewContainer = document.createElement('div');
+        viewContainer.id = viewId;
+        viewContainer.className = 'view-container';
+        viewContainer.style.display = 'none'; // Giữ ẩn trong khi tải
+        mainContent.appendChild(viewContainer);
+
+        try {
+            // Tải cấu trúc HTML
+            const response = await fetch(`${viewName.toLowerCase()}.html`);
+            if (!response.ok) throw new Error(`Không thể tải ${viewName}.html.`);
+            viewContainer.innerHTML = await response.text();
+
+            // Nếu là view cần dữ liệu, tải dữ liệu
+            if (DATA_VIEWS.includes(viewName)) {
+                await loadDataForView(viewName, 1);
+            }
+            
+            // Thiết lập các sự kiện/modal cụ thể cho view
+            if (viewName === 'Product') {
+                setupAddProductModal();
+            }
+        } catch (error) {
+            viewContainer.innerHTML = `<p style="color: red;">Lỗi tải view ${viewName}: ${error.message}</p>`;
         }
-    } catch (error) {
-        viewContainer.innerHTML = `<p style="color: red;">Lỗi tải view ${viewName}: ${error.message}</p>`;
+    } else {
+        console.log(`View '${viewName}' đã tồn tại. Chỉ hiển thị.`);
     }
+
+    // Hiển thị view mục tiêu và ẩn các view khác.
+    switchView(viewName);
 }
 
 /**
@@ -182,7 +166,7 @@ async function loadDataForView(viewName, page = 1) {
 }
 
 // =================================================================
-// CÁC HÀM RENDER
+// CÁC HÀM RENDER (Giữ nguyên không đổi)
 // =================================================================
 
 function renderTable(viewName) {
@@ -341,8 +325,9 @@ function setupAddProductModal() {
             alert('Thêm sản phẩm thành công!');
             modal.style.display = 'none';
             form.reset();
-            await preloadAllViewsAndData(true); // Tải lại toàn bộ dữ liệu
-            switchView('Product'); // Quay lại tab Product
+            // Chỉ tải lại dữ liệu cho tab Product
+            await loadDataForView('Product', 1);
+            switchView('Product'); // Đảm bảo tab Product được hiển thị
 
         } catch (error) {
             alert(`Lỗi: ${error.message}`);
