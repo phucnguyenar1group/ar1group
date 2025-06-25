@@ -26,8 +26,6 @@ const auth = getAuth(app);
 // =================================================================
 // BIẾN TOÀN CỤC
 // =================================================================
-let viewDataCache = {};
-let paginationCache = {};
 let currentView = '';
 
 // =================================================================
@@ -60,7 +58,7 @@ function initializeNavigation() {
         link.addEventListener("click", (event) => {
             event.preventDefault();
             const viewName = link.getAttribute("data-view");
-            if (viewName) activateView(viewName); // Thay đổi: gọi activateView
+            if (viewName) activateView(viewName);
         });
     });
     const logoutBtn = document.getElementById('logout-btn');
@@ -77,75 +75,79 @@ window.getFreshIdToken = async () => {
 };
 
 // =================================================================
-// LOGIC QUẢN LÝ VIEW (Load on demand)
+// LOGIC QUẢN LÝ VIEW (Load on demand) - ĐÃ SỬA LỖI
 // =================================================================
 
 /**
- * Kích hoạt một view. Sẽ tải nếu chưa có, hoặc chỉ hiển thị nếu đã có.
+ * Kích hoạt một view. Sẽ tải nếu chưa được tải, hoặc chỉ hiển thị nếu đã có.
  * @param {string} viewName - Tên của view để kích hoạt.
  */
 async function activateView(viewName) {
     const mainContent = document.getElementById("main-content");
     const viewId = `view-${viewName}`;
     let viewContainer = document.getElementById(viewId);
+    let isNewlyLoaded = false;
 
-    // Nếu view chưa tồn tại trong DOM, tiến hành tải lần đầu.
+    // 1. Ẩn tất cả các view khác trước
+    document.querySelectorAll('#main-content .view-container').forEach(view => {
+        if (view.id !== viewId) {
+            view.style.display = 'none';
+        }
+    });
+
+    // 2. Nếu view chưa tồn tại trong DOM, tiến hành tải lần đầu.
     if (!viewContainer) {
         console.log(`View '${viewName}' chưa tồn tại. Bắt đầu tải...`);
+        isNewlyLoaded = true;
         viewContainer = document.createElement('div');
         viewContainer.id = viewId;
         viewContainer.className = 'view-container';
-        viewContainer.style.display = 'none'; // Giữ ẩn trong khi tải
+        // Hiển thị thông báo tải ngay lập tức
+        viewContainer.innerHTML = `<p style="padding: 24px;">Đang tải nội dung cho ${viewName}...</p>`;
         mainContent.appendChild(viewContainer);
+    }
 
+    // 3. Hiển thị view mục tiêu
+    viewContainer.style.display = 'block';
+    currentView = viewName;
+
+    // 4. Nếu là view mới được tạo, nạp nội dung cho nó
+    if (isNewlyLoaded) {
         try {
-            // Tải cấu trúc HTML
             const response = await fetch(`${viewName.toLowerCase()}.html`);
-            if (!response.ok) throw new Error(`Không thể tải ${viewName}.html.`);
+            if (!response.ok) throw new Error(`Không thể tải file ${viewName}.html. (Lỗi 404)`);
             viewContainer.innerHTML = await response.text();
 
-            // Nếu là view cần dữ liệu, tải dữ liệu
+            // Nếu là view cần dữ liệu, gọi hàm tải dữ liệu
             if (DATA_VIEWS.includes(viewName)) {
-                await loadDataForView(viewName, 1);
+                await loadDataForView(viewName, 1, true); // forceRender = true để điền "Đang tải dữ liệu"
             }
             
-            // Thiết lập các sự kiện/modal cụ thể cho view
+            // Thiết lập các sự kiện/modal cụ thể cho view sau khi HTML được tải
             if (viewName === 'Product') {
                 setupAddProductModal();
             }
         } catch (error) {
-            viewContainer.innerHTML = `<p style="color: red;">Lỗi tải view ${viewName}: ${error.message}</p>`;
+            viewContainer.innerHTML = `<p style="color: red; padding: 24px;">Lỗi tải view ${viewName}: ${error.message}</p>`;
         }
-    } else {
-        console.log(`View '${viewName}' đã tồn tại. Chỉ hiển thị.`);
     }
-
-    // Hiển thị view mục tiêu và ẩn các view khác.
-    switchView(viewName);
-}
-
-/**
- * Chỉ chuyển đổi hiển thị giữa các view đã được tạo.
- * @param {string} viewName - Tên của view để hiển thị.
- */
-function switchView(viewName) {
-    currentView = viewName;
-    document.querySelectorAll('#main-content .view-container').forEach(view => {
-        view.style.display = view.id === `view-${viewName}` ? 'block' : 'none';
-    });
 }
 
 /**
  * Tải dữ liệu từ API và render bảng cho một view cụ thể.
  * @param {string} viewName - Tên view.
  * @param {number} page - Số trang cần tải.
+ * @param {boolean} forceRender - Nếu true, sẽ hiển thị "Đang tải dữ liệu"
  */
-async function loadDataForView(viewName, page = 1) {
+async function loadDataForView(viewName, page = 1, forceRender = false) {
     const viewContainer = document.getElementById(`view-${viewName}`);
     const tableBody = viewContainer?.querySelector("tbody");
     if (!tableBody) return;
 
-    tableBody.innerHTML = `<tr><td colspan="99">Đang tải dữ liệu...</td></tr>`;
+    // Hiển thị "Đang tải dữ liệu" nếu là lần render đầu tiên
+    if(forceRender) {
+        tableBody.innerHTML = `<tr><td colspan="99">Đang tải dữ liệu...</td></tr>`;
+    }
 
     try {
         const response = await fetch(`${GET_DATA_ENDPOINT}?sheetName=${viewName}&page=${page}&limit=20`);
@@ -155,31 +157,29 @@ async function loadDataForView(viewName, page = 1) {
             throw new Error(result.message || "Không có dữ liệu để hiển thị.");
         }
         
-        viewDataCache[viewName] = result.data;
-        paginationCache[viewName] = result.pagination;
-        
-        renderTable(viewName);
-        renderPaginationControls(viewName);
+        renderTable(viewName, result.data);
+        renderPaginationControls(viewName, result.pagination);
     } catch (error) {
         tableBody.innerHTML = `<tr><td colspan="99" style="color: red;">Lỗi tải dữ liệu: ${error.message}</td></tr>`;
     }
 }
 
 // =================================================================
-// CÁC HÀM RENDER (Giữ nguyên không đổi)
+// CÁC HÀM RENDER
 // =================================================================
 
-function renderTable(viewName) {
+function renderTable(viewName, data) {
     const viewContainer = document.getElementById(`view-${viewName}`);
     const tableBody = viewContainer.querySelector("tbody");
     if (!tableBody) return;
     tableBody.innerHTML = "";
-    const data = viewDataCache[viewName];
+    
     const colspan = viewContainer.querySelectorAll("thead th").length || 1;
     if (!data || data.length === 0) {
         tableBody.innerHTML = `<tr><td colspan="${colspan}">Không có dữ liệu để hiển thị.</td></tr>`;
         return;
     }
+
     if (viewName === 'Product') {
         renderProductTable(data, tableBody);
     } else {
@@ -247,10 +247,9 @@ function setupLazyLoading() {
     lazyImages.forEach(image => imageObserver.observe(image));
 }
 
-function renderPaginationControls(viewName) {
+function renderPaginationControls(viewName, pagination) {
     const container = document.querySelector(`#view-${viewName} .pagination-controls`);
     if (!container) return;
-    const pagination = paginationCache[viewName];
     if (!pagination || pagination.totalPages <= 1) {
         container.innerHTML = "";
         return;
@@ -263,7 +262,7 @@ function renderPaginationControls(viewName) {
 }
 
 window.changePage = (viewName, page) => {
-    loadDataForView(viewName, page);
+    loadDataForView(viewName, page, true);
 };
 
 // =================================================================
@@ -325,9 +324,8 @@ function setupAddProductModal() {
             alert('Thêm sản phẩm thành công!');
             modal.style.display = 'none';
             form.reset();
-            // Chỉ tải lại dữ liệu cho tab Product
-            await loadDataForView('Product', 1);
-            switchView('Product'); // Đảm bảo tab Product được hiển thị
+            // Chỉ tải lại dữ liệu cho tab Product để làm mới
+            await loadDataForView('Product', 1, true);
 
         } catch (error) {
             alert(`Lỗi: ${error.message}`);
