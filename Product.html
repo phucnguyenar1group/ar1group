@@ -1,48 +1,50 @@
-<div class="product-controls" style="margin-bottom: 20px; display: flex; gap: 10px;">
-    <button id="btn-add-product" class="btn btn-primary">+ New</button>
+<div class="view-container">
+    <div class="view-controls" style="margin-bottom: 20px; display: flex; gap: 10px;">
+        <button id="btn-add-product" class="btn btn-primary">+ New Product</button>
     </div>
 
-<div class="table-container">
-    <table class="contact-grid" id="product-table-grid">
-      <thead>
-        <tr>
-          <th>PHOTO</th>
-          <th>SKU</th>
-          <th>PRODUCT DESCRIPTION / Tên sản phẩm (song ngữ)</th>
-          <th>STORAGE TYPE</th>
-          <th>PACKING SIZE (INDIVIDUAL WEIGHTS/SIZES)</th>
-          <th>UNITS PER CARTON</th>
-          <th>N.W. PER CARTON (kg)</th>
-          <th>GW. PER CARTON (kg)</th>
-          <th>L (cm)</th>
-          <th>W (cm)</th>
-          <th>H (cm)</th>
-          <th>HS CODE</th>
-          <th>UPC (BARCODE)</th>
-          <th>INGREDIENTS</th>
-          <th>SHELF LIFE</th>
-          <th class="actions-column">Operation</th>
-        </tr>
-      </thead>
-      <tbody id="product-table-body">
-        </tbody>
-    </table>
-</div>
-
-<div class="pagination-controls" style="margin-top: 20px; text-align: center;">
+    <div class="table-container">
+        <!-- Thay đổi: class="data-grid" -->
+        <table class="data-grid" id="product-table-grid">
+            <thead>
+                <tr>
+                    <th>PHOTO</th>
+                    <th>SKU</th>
+                    <th>PRODUCT DESCRIPTION / Tên sản phẩm (song ngữ)</th>
+                    <th>STORAGE TYPE</th>
+                    <th>PACKING SIZE (INDIVIDUAL WEIGHTS/SIZES)</th>
+                    <th>UNITS PER CARTON</th>
+                    <th>N.W. PER CARTON (kg)</th>
+                    <th>GW. PER CARTON (kg)</th>
+                    <th>L (cm)</th>
+                    <th>W (cm)</th>
+                    <th>H (cm)</th>
+                    <th>HS CODE</th>
+                    <th>UPC (BARCODE)</th>
+                    <th>INGREDIENTS</th>
+                    <th>SHELF LIFE</th>
+                    <th class="actions-column">Operation</th>
+                </tr>
+            </thead>
+            <tbody id="product-table-body">
+            </tbody>
+        </table>
     </div>
 
-<div id="add-product-modal" class="modal" style="display:none; /* CSS cho modal sẽ được thêm sau */">
-    <div class="modal-content">
-        <span class="close-button">&times;</span>
-        <h2>Add New Product</h2>
-        <form id="add-product-form">
-                <label>PHOTO<input type="file" name="PHOTO" accept="image/*" required></label>
-                <label>SKU<input type="text" name="SKU" required></label>
-                <label>Product Name<input type="text" name="Product Name" required></label>
-                <label>PRODUCT DESCRIPTION<input type="text" name="PRODUCT DESCRIPTION" required></label>
+    <div class="pagination-controls" style="margin-top: 20px; text-align: center;">
+    </div>
+
+    <!-- Modal không thay đổi -->
+    <div id="add-product-modal" class="modal" style="display:none;">
+        <div class="modal-content">
+            <span class="close-button">&times;</span>
+            <h2>Add New Product</h2>
+            <form id="add-product-form">
+                <label>PHOTO<input type="file" name="PHOTO" accept="image/*"></label>
+                <label>SKU<input type="text" name="SKU"></label>
+                <label>PRODUCT DESCRIPTION / Tên sản phẩm (song ngữ)<input type="text" name="PRODUCT DESCRIPTION / Tên sản phẩm (song ngữ)"></label>
                 <label>STORAGE TYPE<input type="text" name="STORAGE TYPE"></label>
-                <label>PACKING SIZE<input type="text" name="PACKING SIZE"></label>
+                <label>PACKING SIZE (INDIVIDUAL WEIGHTS/SIZES)<input type="text" name="PACKING SIZE (INDIVIDUAL WEIGHTS/SIZES)"></label>
                 <label>UNITS PER CARTON<input type="text" name="UNITS PER CARTON"></label>
                 <label>N.W. PER CARTON (kg)<input type="text" name="N.W. PER CARTON (kg)"></label>
                 <label>GW. PER CARTON (kg)<input type="text" name="GW. PER CARTON (kg)"></label>
@@ -54,6 +56,7 @@
                 <label>INGREDIENTS<input type="text" name="INGREDIENTS"></label>
                 <label>SHELF LIFE<input type="text" name="SHELF LIFE"></label>
                 <button type="submit" class="btn btn-primary">Save Product</button>
-        </form>
+            </form>
+        </div>
     </div>
 </div>

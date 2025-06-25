@@ -1,28 +1,27 @@
-<!-- ./contact.html -->
+<div class="view-container">
+    <div class="view-controls" style="margin-bottom: 20px; display: flex; gap: 10px;">
+        <button id="btn-add-contact" class="btn btn-primary">+ New Contact</button>
+    </div>
 
-<div class="table-container">
-    <table class="contact-grid" id="contact-table-grid">
-      <thead>
-        <tr>
-          <!-- 5 cột dữ liệu -->
-          <th>Tên</th>
-          <th>Email</th>
-          <th>Số điện thoại</th>
-          <th>Chức vụ</th>
-          <th>Quyền truy cập</th>
+    <div class="table-container">
+        <!-- Thay đổi: class="data-grid" và id="contact-table" -->
+        <table class="data-grid" id="contact-table">
+            <thead>
+                <tr>
+                    <th>Tên</th>
+                    <th>Email</th>
+                    <th>Số điện thoại</th>
+                    <th>Chức vụ</th>
+                    <th>Quyền truy cập</th>
+                    <th class="actions-column">Actions</th>
+                </tr>
+            </thead>
+            <!-- Thay đổi: id của tbody -->
+            <tbody id="contact-table-body">
+            </tbody>
+        </table>
+    </div>
 
-          <!-- CỘT THỨ 6: Dành riêng cho các nút, có class để CSS nhận dạng -->
-          <th class="actions-column">
-            <div id="edit-controls">
-                <button id="btn-edit" class="btn btn-secondary" style="display: none;">Sửa</button>
-                <button id="btn-save" class="btn btn-primary" style="display: none;">Lưu</button>
-                <button id="btn-cancel" class="btn btn-secondary" style="display: none;">Hủy</button>
-            </div>
-          </th>
-        </tr>
-      </thead>
-      <tbody id="contact-table">
-        <!-- Dữ liệu sẽ được chèn vào đây bởi app.js -->
-      </tbody>
-    </table>
+    <div class="pagination-controls" style="margin-top: 20px; text-align: center;">
+    </div>
 </div>
