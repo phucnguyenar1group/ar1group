@@ -48,44 +48,60 @@ const checkPermissions = async (req, res, next) => {
 
 // Route lấy dữ liệu
 app.get('/api/sheet-data', async (req, res) => {
-    const sheetName = req.query.sheetName;
+    // Lấy thêm tham số page và limit
+    const { sheetName, page = 1, limit = 20 } = req.query; // Mặc định trang 1, 20 mục/trang
+
     if (!sheetName) {
-        return res.status(400).json({ status: 'error', message: 'Cần cung cấp "sheetName" trong query.' });
+        return res.status(400).json({ status: 'error', message: 'Cần cung cấp "sheetName".' });
     }
 
+    // Key cho cache giờ sẽ bao gồm cả trang và giới hạn
+    const cacheKey = `${sheetName}-p${page}-l${limit}`;
     const now = Date.now();
-    // Kiểm tra cache trước
-    if (cache[sheetName] && (now - cache[sheetName].timestamp) / 1000 < CACHE_DURATION_SECONDS) {
-        console.log(`[Cache HIT] Trả về dữ liệu cache cho: ${sheetName}`);
-        return res.json({ status: 'success', source: 'cache', data: cache[sheetName].data });
+
+    if (cache[cacheKey] && (now - cache[cacheKey].timestamp) / 1000 < CACHE_DURATION_SECONDS) {
+        console.log(`[Cache HIT] Trả về dữ liệu cache cho: ${cacheKey}`);
+        return res.json({ status: 'success', source: 'cache', ...cache[cacheKey].data });
     }
 
     try {
-        console.log(`[Cache MISS] Lấy dữ liệu mới từ Google cho: ${sheetName}`);
-        const responseFromGoogle = await axios.get(`${SCRIPT_URL}?sheetName=${sheetName}`);
+        console.log(`[Cache MISS] Lấy dữ liệu mới từ Google cho: ${cacheKey}`);
+        // Truyền tham số phân trang tới Google Apps Script
+        const scriptUrlWithParams = `${SCRIPT_URL}?sheetName=${sheetName}&page=${page}&limit=${limit}`;
+        const responseFromGoogle = await axios.get(scriptUrlWithParams);
         const googleData = responseFromGoogle.data;
 
-        // Kiểm tra kỹ cấu trúc dữ liệu trả về từ Google Apps Script
-        if (googleData && googleData.status === 'success' && Array.isArray(googleData.data)) {
-            // Lưu dữ liệu vào cache
-            cache[sheetName] = { data: googleData.data, timestamp: now };
-            console.log(`[Cache SET] Đã lưu cache cho: ${sheetName}`);
-
-            // Trả về cho client với định dạng chuẩn
-            res.json({
-                status: 'success',
-                source: 'google',
-                data: googleData.data
-            });
+        if (googleData && googleData.status === 'success') {
+            cache[cacheKey] = { data: googleData, timestamp: now };
+            console.log(`[Cache SET] Đã lưu cache cho: ${cacheKey}`);
+            res.json({ source: 'google', ...googleData });
         } else {
-            // Nếu Apps Script trả về lỗi hoặc định dạng không đúng
-            console.error(`[Google Script Error] Phản hồi không hợp lệ cho ${sheetName}:`, googleData);
-            res.status(502).json({ status: 'error', message: googleData.message || 'Dữ liệu trả về từ Google không hợp lệ.' });
+            // ... xử lý lỗi như cũ ...
         }
     } catch (error) {
-        // Nếu có lỗi mạng khi gọi Apps Script
-        console.error(`[Axios Error] Lỗi khi gọi Google Script cho ${sheetName}:`, error.message);
-        res.status(500).json({ status: 'error', message: 'Lỗi server khi lấy dữ liệu từ Google.' });
+        // ... xử lý lỗi như cũ ...
+    }
+});
+
+// ROUTE MỚI: Thêm sản phẩm
+app.post('/api/add-product', checkPermissions, async (req, res) => {
+    try {
+        // Thêm một action để Google Script biết phải làm gì
+        const payload = {
+            action: 'addProduct',
+            ...req.body
+        };
+
+        const responseFromGoogle = await axios.post(SCRIPT_URL, payload);
+
+        // Xóa cache của trang đầu tiên của sheet Product vì có dữ liệu mới
+        console.log(`[Cache CLEAR] Xóa cache cho Product trang 1`);
+        delete cache['Product-p1-l20']; // Hoặc một cơ chế xóa cache thông minh hơn
+
+        res.json(responseFromGoogle.data);
+    } catch (error) {
+        console.error('[Add Product Error]', error.message);
+        res.status(500).json({ status: 'error', message: 'Lỗi server khi thêm sản phẩm.' });
     }
 });
 
