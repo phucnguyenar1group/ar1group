@@ -6,7 +6,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link rel="stylesheet" href="style.css" />
 </head>
-<body>
+<!-- Thay đổi ở dòng này: thêm class="login-body" -->
+<body class="login-body">
   <div class="login-container">
     <div class="login-card">
       <h1 class="login-title">Đăng nhập</h1>
@@ -30,11 +31,12 @@
     </div>
   </div>
 
-  <!-- Firebase logic dùng module -->
+  <!-- Phần script giữ nguyên -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-app.js";
     import { getAuth, signInWithEmailAndPassword, GoogleAuthProvider, signInWithPopup, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-auth.js";
 
+    // ... Toàn bộ script của bạn giữ nguyên ...
     const firebaseConfig = {
       apiKey: "AIzaSyAo1dijhT5XW-EU96LzheOvZSs99IiBNUU",
       authDomain: "ar1group.firebaseapp.com",
@@ -43,12 +45,8 @@
       messagingSenderId: "274727678186",
       appId: "1:274727678186:web:05cdae4f7ad636185fa793"
     };
-
-    // Khởi tạo Firebase
     const app = initializeApp(firebaseConfig);
     const auth = getAuth(app);
-
-    // Đăng nhập bằng email/password
     document.getElementById('btn-login').onclick = () => {
       const email = document.getElementById('email').value;
       const password = document.getElementById('password').value;
@@ -59,11 +57,8 @@
         })
         .catch((error) => {
           document.getElementById('msg').innerText = "Đăng nhập thất bại: " + error.message;
-          console.error(error);
         });
     };
-
-    // Đăng nhập bằng Google
     document.getElementById('btn-google').onclick = () => {
       const provider = new GoogleAuthProvider();
       signInWithPopup(auth, provider)
@@ -73,11 +68,8 @@
         })
         .catch((error) => {
           document.getElementById('msg').innerText = "Đăng nhập Google thất bại: " + error.message;
-          console.error(error);
         });
     };
-
-    // Chuyển hướng nếu đã đăng nhập
     onAuthStateChanged(auth, (user) => {
       if (user) {
         sessionStorage.setItem("logged_email", user.email);

@@ -1,16 +1,18 @@
 /* style.css */
 
+/* Style chung cho body, rất cơ bản */
 body {
   margin: 0;
   font-family: 'Segoe UI', Tahoma, sans-serif;
   background-color: #F8FAFD;
-  display: flex;
 }
 
 /* =================================
    LOGIN PAGE STYLES
    ================================= */
+/* Style body dành RIÊNG cho trang login */
 .login-body {
+  display: flex;
   justify-content: center;
   align-items: center;
   height: 100vh;
@@ -36,7 +38,11 @@ input[type="email"], input[type="password"] { padding: 10px; font-size: 15px; bo
 /* =================================
    DASHBOARD LAYOUT
    ================================= */
-.dashboard-body { background: #F8FAFD; min-height: 100vh; display: flex; }
+/* Style body dành RIÊNG cho trang dashboard */
+.dashboard-body {
+  display: flex;
+  min-height: 100vh;
+}
 .sidebar { position: fixed; top: 0; left: 0; width: 180px; height: 100vh; background: #F8FAFD; padding: 24px 16px; display: flex; flex-direction: column; z-index: 1000; }
 .sidebar-header { display: flex; align-items: center; gap: 12px; margin-bottom: 32px; }
 .sidebar-logo { width: 40px; height: 40px; border-radius: 50%; cursor: pointer; }
@@ -96,7 +102,6 @@ input[type="email"], input[type="password"] { padding: 10px; font-size: 15px; bo
 .data-grid {
   width: 100%;
   border-collapse: collapse;
-  /* THÊM DÒNG NÀY: Quan trọng để các cột tôn trọng width đã đặt */
   table-layout: fixed;
 }
 
@@ -106,7 +111,6 @@ input[type="email"], input[type="password"] { padding: 10px; font-size: 15px; bo
   text-align: left;
   white-space: nowrap;
   vertical-align: middle;
-  /* THÊM CÁC DÒNG NÀY: để cắt chữ nếu quá dài */
   overflow: hidden;
   text-overflow: ellipsis;
 }
@@ -128,35 +132,30 @@ input[type="email"], input[type="password"] { padding: 10px; font-size: 15px; bo
 }
 
 /* =================================
-   TABLE SPECIFIC WIDTHS (Tùy chỉnh độ rộng cột)
+   TABLE SPECIFIC WIDTHS
    ================================= */
-
-/* --- Dành cho bảng Contact --- */
-#contact-table th:nth-child(1) { width: 150px; } /* Tên */
-#contact-table th:nth-child(2) { width: 220px; } /* Email */
-#contact-table th:nth-child(3) { width: 150px; } /* Số điện thoại */
-#contact-table th:nth-child(4) { width: 150px; } /* Chức vụ */
-#contact-table th:nth-child(5) { width: 150px; } /* Quyền truy cập */
+#contact-table th:nth-child(1) { width: 150px; }
+#contact-table th:nth-child(2) { width: 220px; }
+#contact-table th:nth-child(3) { width: 150px; }
+#contact-table th:nth-child(4) { width: 150px; }
+#contact-table th:nth-child(5) { width: 150px; }
 #contact-table th.actions-column { width: 120px; }
-
-/* --- Dành cho bảng Product --- */
-#product-table-grid th:nth-child(1)  { width: 80px; }   /* PHOTO */
-#product-table-grid th:nth-child(2)  { width: 100px; }  /* SKU */
-#product-table-grid th:nth-child(3)  { width: 300px; }  /* PRODUCT DESCRIPTION */
-#product-table-grid th:nth-child(4)  { width: 150px; }  /* STORAGE TYPE */
-#product-table-grid th:nth-child(5)  { width: 200px; }  /* PACKING SIZE */
-#product-table-grid th:nth-child(6)  { width: 150px; }  /* UNITS PER CARTON */
-#product-table-grid th:nth-child(7)  { width: 150px; }  /* N.W. PER CARTON (kg) */
-#product-table-grid th:nth-child(8)  { width: 150px; }  /* GW. PER CARTON (kg) */
-#product-table-grid th:nth-child(9)  { width: 80px; }   /* L (cm) */
-#product-table-grid th:nth-child(10) { width: 80px; }   /* W (cm) */
-#product-table-grid th:nth-child(11) { width: 80px; }   /* H (cm) */
-#product-table-grid th:nth-child(12) { width: 120px; }  /* HS CODE */
-#product-table-grid th:nth-child(13) { width: 150px; }  /* UPC (BARCODE) */
-#product-table-grid th:nth-child(14) { width: 250px; }  /* INGREDIENTS */
-#product-table-grid th:nth-child(15) { width: 120px; }  /* SHELF LIFE */
-#product-table-grid th.actions-column { width: 120px; } /* Operation */
-
+#product-table-grid th:nth-child(1)  { width: 80px; }
+#product-table-grid th:nth-child(2)  { width: 100px; }
+#product-table-grid th:nth-child(3)  { width: 300px; }
+#product-table-grid th:nth-child(4)  { width: 150px; }
+#product-table-grid th:nth-child(5)  { width: 200px; }
+#product-table-grid th:nth-child(6)  { width: 150px; }
+#product-table-grid th:nth-child(7)  { width: 150px; }
+#product-table-grid th:nth-child(8)  { width: 150px; }
+#product-table-grid th:nth-child(9)  { width: 80px; }
+#product-table-grid th:nth-child(10) { width: 80px; }
+#product-table-grid th:nth-child(11) { width: 80px; }
+#product-table-grid th:nth-child(12) { width: 120px; }
+#product-table-grid th:nth-child(13) { width: 150px; }
+#product-table-grid th:nth-child(14) { width: 250px; }
+#product-table-grid th:nth-child(15) { width: 120px; }
+#product-table-grid th.actions-column { width: 120px; }
 
 /* =================================
    PRODUCT & OTHER COMPONENTS
