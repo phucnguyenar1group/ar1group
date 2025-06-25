@@ -36,7 +36,7 @@ document.addEventListener("DOMContentLoaded", () => {
         if (user) {
             setupUserSession(user);
             initializeNavigation();
-            // Tải view mặc định ban đầu
+            // Kích hoạt view mặc định ban đầu
             activateView('dashboard-main');
         } else {
             sessionStorage.clear();
@@ -86,49 +86,48 @@ async function activateView(viewName) {
     const mainContent = document.getElementById("main-content");
     const viewId = `view-${viewName}`;
     let viewContainer = document.getElementById(viewId);
+    let isNewlyLoaded = false;
 
-    // 1. Ẩn tất cả các view khác trước
-    document.querySelectorAll('#main-content .view-container').forEach(view => {
-        view.style.display = 'none';
-    });
-
-    // 2. Nếu view chưa tồn tại trong DOM, tiến hành tải lần đầu.
+    // 1. Ẩn view đang hoạt động (nếu có)
+    if (currentView && currentView !== viewName) {
+        const oldViewContainer = document.getElementById(`view-${currentView}`);
+        if (oldViewContainer) {
+            oldViewContainer.style.display = 'none';
+        }
+    }
+    
+    // 2. Nếu view mục tiêu chưa tồn tại trong DOM, tiến hành tải lần đầu.
     if (!viewContainer) {
         console.log(`View '${viewName}' chưa tồn tại. Bắt đầu tải...`);
-        
+        isNewlyLoaded = true;
         viewContainer = document.createElement('div');
         viewContainer.id = viewId;
         viewContainer.className = 'view-container';
-        // Hiển thị thông báo tải ngay lập tức
         viewContainer.innerHTML = `<p style="padding: 24px;">Đang tải nội dung cho ${viewName}...</p>`;
         mainContent.appendChild(viewContainer);
-        viewContainer.style.display = 'block'; // Hiển thị ngay
-        currentView = viewName;
+    }
 
+    // 3. Hiển thị view mục tiêu và cập nhật trạng thái
+    viewContainer.style.display = 'block';
+    currentView = viewName;
+
+    // 4. Nếu là view mới được tạo, nạp nội dung thực sự cho nó
+    if (isNewlyLoaded) {
         try {
             const response = await fetch(`${viewName.toLowerCase()}.html`);
-            if (!response.ok) throw new Error(`Không thể tải file ${viewName}.html. (Vui lòng kiểm tra lại xem file đã được deploy chưa)`);
+            if (!response.ok) throw new Error(`Không thể tải file ${viewName}.html. (Lỗi 404)`);
             
-            // Tải xong HTML, điền vào container
             viewContainer.innerHTML = await response.text();
 
-            // Nếu là view cần dữ liệu, gọi hàm tải dữ liệu và render
             if (DATA_VIEWS.includes(viewName)) {
-                await loadDataForView(viewName, 1, true); // forceRender = true để hiện "Đang tải..."
+                await loadDataForView(viewName, 1, true); 
             }
-            
-            // Thiết lập các sự kiện/modal cụ thể cho view sau khi HTML được tải
             if (viewName === 'Product') {
                 setupAddProductModal();
             }
         } catch (error) {
             viewContainer.innerHTML = `<p style="color: red; padding: 24px;">Lỗi tải view ${viewName}: ${error.message}</p>`;
         }
-    } else {
-        // 3. Nếu view đã tồn tại, chỉ cần hiển thị nó
-        console.log(`View '${viewName}' đã tồn tại. Chỉ hiển thị.`);
-        viewContainer.style.display = 'block';
-        currentView = viewName;
     }
 }
 
