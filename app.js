@@ -1,11 +1,6 @@
 // =================================================================
-// IMPORTS & CẤU HÌNH
+// CẤU HÌNH
 // =================================================================
-
-// Import các hàm cần thiết từ Firebase SDK
-import { initializeApp, getApps } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-app.js";
-import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-storage.js";
-
 // !!! QUAN TRỌNG: Thay thế URL này bằng URL Vercel đã cung cấp cho bạn
 const API_BASE_URL = "https://ar1group.vercel.app"; 
 
@@ -14,29 +9,14 @@ const GET_DATA_ENDPOINT = `${API_BASE_URL}/api/sheet-data`;
 const UPDATE_DATA_ENDPOINT = `${API_BASE_URL}/api/update-sheet`;
 const ADD_PRODUCT_ENDPOINT = `${API_BASE_URL}/api/add-product`;
 
-// =================================================================
-// KHỞI TẠO FIREBASE
-// =================================================================
-
-// Lấy config từ window (được khai báo trong dashboard.html) để tránh lặp lại
-const firebaseConfig = window.firebaseConfig;
-let app;
-if (!getApps().length) {
-    app = initializeApp(firebaseConfig);
-} else {
-    app = getApps()[0];
-}
-// Khởi tạo Storage service
-const storage = getStorage(app);
-
 
 // =================================================================
 // BIẾN TOÀN CỤC VÀ CACHE
 // =================================================================
-let viewDataCache = {}; // Cache dữ liệu của bảng
-let paginationCache = {}; // Cache thông tin phân trang
-let changesToSave = []; // Mảng lưu các ô đã thay đổi
-let currentView = ''; // View đang hoạt động
+let viewDataCache = {};
+let paginationCache = {};
+let changesToSave = [];
+let currentView = '';
 
 // =================================================================
 // KHỞI TẠO ỨNG DỤNG
@@ -61,34 +41,29 @@ async function loadView(viewName) {
     const viewId = `view-${viewName}`;
     currentView = viewName;
 
-    // Ẩn tất cả các view con đang có
     mainContent.querySelectorAll('.view-container').forEach(view => view.style.display = 'none');
 
     let viewContainer = document.getElementById(viewId);
 
     if (viewContainer) {
         viewContainer.style.display = 'block';
-        console.log(`Hiển thị lại view đã cache: ${viewName}`);
     } else {
         viewContainer = document.createElement('div');
         viewContainer.id = viewId;
         viewContainer.className = 'view-container';
         mainContent.appendChild(viewContainer);
-        console.log(`Tải view lần đầu: ${viewName}`);
-
+        
         try {
             const response = await fetch(`${viewName.toLowerCase()}.html`);
             if (!response.ok) throw new Error(`Không thể tải ${viewName}.html.`);
             viewContainer.innerHTML = await response.text();
 
             if (['Contact', 'Vendor', 'Product'].includes(viewName)) {
-                await loadDataForView(viewName, 1, true); // Tải trang 1, bắt buộc render
+                await loadDataForView(viewName, 1, true);
             }
-
             if (viewName === 'Product') {
                 setupAddProductModal();
             }
-
         } catch (error) {
             viewContainer.innerHTML = `<p style="color: red;">Lỗi tải view: ${error.message}</p>`;
         }
@@ -121,10 +96,6 @@ async function loadDataForView(viewName, page = 1, forceRender = false) {
         renderTable(viewName);
         renderPaginationControls(viewName);
 
-        if (sessionStorage.getItem('userRole') === 'admin') {
-            viewContainer.querySelectorAll('.admin-control').forEach(el => el.style.display = 'inline-block');
-        }
-
     } catch (error) {
         if (tableBody) tableBody.innerHTML = `<tr><td colspan="99" style="color: red;">Lỗi tải dữ liệu: ${error.message}</td></tr>`;
     }
@@ -137,13 +108,13 @@ async function loadDataForView(viewName, page = 1, forceRender = false) {
 function renderTable(viewName) {
     const viewContainer = document.getElementById(`view-${viewName}`);
     const tableBody = viewContainer.querySelector("tbody");
-    if (!viewContainer || !tableBody) return;
+    if (!tableBody) return;
 
     tableBody.innerHTML = "";
     const data = viewDataCache[viewName]?.data;
+    const colspan = viewContainer.querySelectorAll("thead th").length || 1;
 
     if (!data || data.length === 0) {
-        const colspan = viewContainer.querySelectorAll("thead th").length || 1;
         tableBody.innerHTML = `<tr><td colspan="${colspan}">Không có dữ liệu để hiển thị.</td></tr>`;
         return;
     }
@@ -155,9 +126,6 @@ function renderTable(viewName) {
     }
 }
 
-/**
- * Hàm render cho bảng Product, đã được cập nhật để khớp với các header mới.
- */
 function renderProductTable(data, tableBody) {
     data.forEach(row => {
         const tr = document.createElement("tr");
@@ -186,24 +154,19 @@ function renderProductTable(data, tableBody) {
 }
 
 function renderGenericTable(viewName, data, tableBody, viewContainer) {
-    const headers = Array.from(viewContainer.querySelectorAll("thead th:not(.actions-column)"))
-                         .map(th => th.textContent.trim());
-    
+    const headers = Array.from(viewContainer.querySelectorAll("thead th:not(.actions-column)")).map(th => th.textContent.trim());
     data.forEach((row, rowIndex) => {
         const tr = document.createElement("tr");
         tr.setAttribute('data-row-index', rowIndex);
-
         headers.forEach(header => {
             const td = document.createElement("td");
             td.setAttribute('data-column-name', header);
             td.textContent = row[header] || "";
             tr.appendChild(td);
         });
-
         const actionTd = document.createElement("td");
         actionTd.className = 'actions-column';
         tr.appendChild(actionTd);
-
         tableBody.appendChild(tr);
     });
 }
@@ -214,45 +177,36 @@ function setupLazyLoading() {
         entries.forEach(entry => {
             if (entry.isIntersecting) {
                 const image = entry.target;
-                if (image.dataset.src) {
-                   image.src = image.dataset.src;
-                }
+                if (image.dataset.src) image.src = image.dataset.src;
                 image.classList.remove('lazy');
                 observer.unobserve(image);
             }
         });
     });
-
     lazyImages.forEach(image => imageObserver.observe(image));
 }
 
 function renderPaginationControls(viewName) {
-    const viewContainer = document.getElementById(`view-${viewName}`);
-    const container = viewContainer.querySelector(".pagination-controls");
+    const container = document.querySelector(`#view-${viewName} .pagination-controls`);
     if (!container) return;
-
     const pagination = paginationCache[viewName];
     if (!pagination || pagination.totalPages <= 1) {
         container.innerHTML = "";
         return;
     }
-
-    let buttonsHTML = '';
-    buttonsHTML += `<button class="btn btn-secondary" ${pagination.page === 1 ? 'disabled' : ''} onclick="window.changePage('${viewName}', ${pagination.page - 1})">Previous</button>`;
-    buttonsHTML += `<span style="margin: 0 15px;">Page ${pagination.page} of ${pagination.totalPages}</span>`;
-    buttonsHTML += `<button class="btn btn-secondary" ${pagination.page >= pagination.totalPages ? 'disabled' : ''} onclick="window.changePage('${viewName}', ${pagination.page + 1})">Next</button>`;
-    
-    container.innerHTML = buttonsHTML;
+    container.innerHTML = `
+        <button class="btn btn-secondary" ${pagination.page === 1 ? 'disabled' : ''} onclick="window.changePage('${viewName}', ${pagination.page - 1})">Previous</button>
+        <span style="margin: 0 15px;">Page ${pagination.page} of ${pagination.totalPages}</span>
+        <button class="btn btn-secondary" ${pagination.page >= pagination.totalPages ? 'disabled' : ''} onclick="window.changePage('${viewName}', ${pagination.page + 1})">Next</button>
+    `;
 }
 
-// Gắn hàm vào window để HTML có thể gọi
 window.changePage = (viewName, page) => {
     loadDataForView(viewName, page, true);
 };
 
-
 // =================================================================
-// LOGIC THÊM SẢN PHẨM (MODAL)
+// LOGIC THÊM SẢN PHẨM (MODAL) VỚI GOOGLE DRIVE UPLOAD
 // =================================================================
 
 function setupAddProductModal() {
@@ -262,49 +216,49 @@ function setupAddProductModal() {
     const span = viewContainer.querySelector('.close-button');
     const form = viewContainer.querySelector('#add-product-form');
 
-    if (!modal || !btn || !span || !form) {
-      console.warn("Modal elements not found for product view.");
-      return;
-    }
+    if (!modal || !btn || !span || !form) return;
 
     btn.onclick = () => { modal.style.display = 'block'; };
     span.onclick = () => { modal.style.display = 'none'; };
     window.addEventListener('click', (event) => {
-        if (event.target == modal) {
-            modal.style.display = 'none';
-        }
+        if (event.target == modal) modal.style.display = 'none';
     });
 
     form.onsubmit = async (event) => {
         event.preventDefault();
         const submitButton = form.querySelector('button[type="submit"]');
-        submitButton.textContent = 'Đang lưu...';
+        submitButton.textContent = 'Đang xử lý...';
         submitButton.disabled = true;
 
         try {
+            // Bước 1: Đọc file ảnh dưới dạng base64
             const fileInput = form.querySelector('input[name="PHOTO"]');
             const file = fileInput.files[0];
-            let imageUrl = '';
+            let imageFilePayload = null;
             
             if (file) {
-                 submitButton.textContent = 'Đang tải ảnh...';
-                 const storageRef = ref(storage, `products/${Date.now()}_${file.name}`);
-                 const snapshot = await uploadBytes(storageRef, file);
-                 imageUrl = await getDownloadURL(snapshot.ref);
-                 console.log('Image uploaded:', imageUrl);
+                // Giới hạn kích thước file ở client để tránh lỗi từ Vercel
+                if (file.size > 4.5 * 1024 * 1024) {
+                    throw new Error("Ảnh quá lớn. Vui lòng chọn ảnh có kích thước dưới 4.5 MB.");
+                }
+                const base64Data = await toBase64(file);
+                imageFilePayload = {
+                    base64Data: base64Data.split(',')[1], // Chỉ lấy phần dữ liệu sau dấu phẩy
+                    mimeType: file.type,
+                    fileName: file.name
+                };
             }
 
+            // Bước 2: Gom dữ liệu từ form
             const formData = new FormData(form);
             const productData = {};
             for (let [key, value] of formData.entries()) {
-                // Không lấy giá trị của file input vào đây vì ta đã xử lý riêng
                 if (key !== 'PHOTO') {
                     productData[key] = value;
                 }
             }
-            productData.PHOTO = imageUrl; // Thêm URL ảnh, dù là rỗng hay có giá trị
-
-            submitButton.textContent = 'Đang lưu dữ liệu...';
+            
+            // Bước 3: Gửi toàn bộ payload (thông tin sản phẩm và file ảnh) đến backend
             const idToken = await window.getFreshIdToken();
             const response = await fetch(ADD_PRODUCT_ENDPOINT, {
                 method: 'POST',
@@ -313,13 +267,17 @@ function setupAddProductModal() {
                     'Authorization': `Bearer ${idToken}`
                 },
                 body: JSON.stringify({
+                    action: 'addProduct', // Action để Apps Script biết cần làm gì
                     sheetName: 'Product',
-                    productData: productData
+                    productData: productData,
+                    imageFile: imageFilePayload // Gửi kèm đối tượng file ảnh
                 })
             });
 
             const result = await response.json();
-            if (result.status !== 'success') throw new Error(result.message);
+            if (!response.ok || result.status !== 'success') {
+                 throw new Error(result.message || "Có lỗi xảy ra từ server.");
+            }
 
             alert('Thêm sản phẩm thành công!');
             modal.style.display = 'none';
@@ -334,3 +292,15 @@ function setupAddProductModal() {
         }
     }
 }
+
+/**
+ * Hàm tiện ích chuyển đổi file thành chuỗi base64.
+ * @param {File} file - File người dùng chọn.
+ * @returns {Promise<string>} - Một promise sẽ resolve với chuỗi base64.
+ */
+const toBase64 = file => new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = error => reject(error);
+});
