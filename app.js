@@ -1,28 +1,57 @@
 // =================================================================
-// CẤU HÌNH
+// IMPORTS & CẤU HÌNH
 // =================================================================
-// !!! QUAN TRỌNG: Thay thế URL này bằng URL Vercel đã cung cấp cho bạn
-const API_BASE_URL = "https://ar1group.vercel.app"; 
+import { initializeApp, getApps } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-app.js";
+import { getAuth, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-auth.js";
 
-// Định nghĩa các endpoints
+const API_BASE_URL = "https://ar1group.vercel.app";
 const GET_DATA_ENDPOINT = `${API_BASE_URL}/api/sheet-data`;
-const UPDATE_DATA_ENDPOINT = `${API_BASE_URL}/api/update-sheet`;
 const ADD_PRODUCT_ENDPOINT = `${API_BASE_URL}/api/add-product`;
 
+// =================================================================
+// KHỞI TẠO FIREBASE
+// =================================================================
+const firebaseConfig = window.firebaseConfig;
+let app;
+if (!getApps().length) {
+    app = initializeApp(firebaseConfig);
+} else {
+    app = getApps()[0];
+}
+const auth = getAuth(app);
 
 // =================================================================
 // BIẾN TOÀN CỤC VÀ CACHE
 // =================================================================
 let viewDataCache = {};
 let paginationCache = {};
-let changesToSave = [];
 let currentView = '';
 
 // =================================================================
-// KHỞI TẠO ỨNG DỤNG
+// KHỞI TẠO ỨNG DỤNG VÀ XÁC THỰC
 // =================================================================
 document.addEventListener("DOMContentLoaded", () => {
-    loadView('dashboard-main');
+    onAuthStateChanged(auth, (user) => {
+        if (user) {
+            setupUserSession(user);
+            initializeNavigation();
+            loadView('dashboard-main');
+        } else {
+            sessionStorage.clear();
+            if (window.location.pathname !== "/index.html" && window.location.pathname !== "/") {
+                 window.location.href = "index.html";
+            }
+        }
+    });
+});
+
+function setupUserSession(user) {
+    const userEmailElement = document.getElementById('userEmail');
+    if (userEmailElement) userEmailElement.textContent = user.email || "Không xác định";
+    sessionStorage.setItem('userRole', (user.email && user.email.endsWith('@ar1group.com')) ? 'admin' : 'customer');
+}
+
+function initializeNavigation() {
     document.querySelectorAll(".sidebar-menu a").forEach(link => {
         link.addEventListener("click", (event) => {
             event.preventDefault();
@@ -30,95 +59,105 @@ document.addEventListener("DOMContentLoaded", () => {
             if (viewName) loadView(viewName);
         });
     });
-});
+    const logoutBtn = document.getElementById('logout-btn');
+    if(logoutBtn) {
+      logoutBtn.onclick = () => signOut(auth).catch(error => alert(`Đăng xuất thất bại: ${error.message}`));
+    }
+}
+
+window.getFreshIdToken = async () => {
+    if (auth.currentUser) {
+        return await auth.currentUser.getIdToken(true);
+    }
+    return null;
+};
 
 // =================================================================
-// LOGIC CHÍNH: TẢI VIEW VÀ DỮ LIỆU
+// LOGIC CHÍNH: TẢI VIEW VÀ DỮ LIỆU (ĐÃ SỬA LỖI)
 // =================================================================
 
+/**
+ * Hàm tải view đã được viết lại để khắc phục lỗi mất nội dung.
+ * @param {string} viewName - Tên của view để tải.
+ */
 async function loadView(viewName) {
     const mainContent = document.getElementById("main-content");
     const viewId = `view-${viewName}`;
     currentView = viewName;
 
-    mainContent.querySelectorAll('.view-container').forEach(view => view.style.display = 'none');
+    // Đầu tiên, tìm view mục tiêu
+    let targetView = document.getElementById(viewId);
 
-    let viewContainer = document.getElementById(viewId);
+    // Nếu view chưa tồn tại, hãy tạo và tải nội dung cho nó
+    if (!targetView) {
+        targetView = document.createElement('div');
+        targetView.id = viewId;
+        targetView.className = 'view-container';
+        targetView.style.display = 'none'; // Bắt đầu ở trạng thái ẩn
+        mainContent.appendChild(targetView);
 
-    if (viewContainer) {
-        viewContainer.style.display = 'block';
-    } else {
-        viewContainer = document.createElement('div');
-        viewContainer.id = viewId;
-        viewContainer.className = 'view-container';
-        mainContent.appendChild(viewContainer);
-        
         try {
             const response = await fetch(`${viewName.toLowerCase()}.html`);
-            if (!response.ok) throw new Error(`Không thể tải ${viewName}.html.`);
-            viewContainer.innerHTML = await response.text();
+            if (!response.ok) throw new Error(`Không thể tải ${viewName}.html (lỗi 404 hoặc lỗi server).`);
+            
+            targetView.innerHTML = await response.text();
 
-            if (['Contact', 'Vendor', 'Product'].includes(viewName)) {
+            // Nếu là view cần dữ liệu, tải dữ liệu lần đầu
+            if (['Contact', 'Vendor', 'Product', 'Marketing', 'Shipment'].includes(viewName)) {
                 await loadDataForView(viewName, 1, true);
             }
+            // Nếu là view Product, thiết lập modal
             if (viewName === 'Product') {
                 setupAddProductModal();
             }
         } catch (error) {
-            viewContainer.innerHTML = `<p style="color: red;">Lỗi tải view: ${error.message}</p>`;
+            targetView.innerHTML = `<p style="color: red;">Lỗi tải view: ${error.message}</p>`;
         }
     }
+
+    // Sau khi chắc chắn view đã tồn tại, lặp qua tất cả các view để ẩn/hiện
+    mainContent.querySelectorAll('.view-container').forEach(view => {
+        view.style.display = view.id === viewId ? 'block' : 'none';
+    });
 }
 
+
+// Các hàm còn lại giữ nguyên như cũ
 async function loadDataForView(viewName, page = 1, forceRender = false) {
     const viewContainer = document.getElementById(`view-${viewName}`);
     if (!viewContainer) return;
-    
     const tableBody = viewContainer.querySelector("tbody");
     if (!tableBody) return;
-
     if (forceRender) {
         tableBody.innerHTML = `<tr><td colspan="99">Đang tải dữ liệu...</td></tr>`;
     }
-
     try {
         const response = await fetch(`${GET_DATA_ENDPOINT}?sheetName=${viewName}&page=${page}&limit=20`);
         if (!response.ok) throw new Error("Lỗi mạng hoặc server không phản hồi.");
-        
         const result = await response.json();
         if (result.status !== 'success' || !result.data) {
             throw new Error(result.message || "Không có dữ liệu để hiển thị.");
         }
-        
         viewDataCache[viewName] = { data: result.data };
         paginationCache[viewName] = result.pagination;
-        
         renderTable(viewName);
         renderPaginationControls(viewName);
-
     } catch (error) {
         if (tableBody) tableBody.innerHTML = `<tr><td colspan="99" style="color: red;">Lỗi tải dữ liệu: ${error.message}</td></tr>`;
     }
 }
 
-// =================================================================
-// LOGIC RENDER BẢNG VÀ PHÂN TRANG
-// =================================================================
-
 function renderTable(viewName) {
     const viewContainer = document.getElementById(`view-${viewName}`);
     const tableBody = viewContainer.querySelector("tbody");
     if (!tableBody) return;
-
     tableBody.innerHTML = "";
     const data = viewDataCache[viewName]?.data;
     const colspan = viewContainer.querySelectorAll("thead th").length || 1;
-
     if (!data || data.length === 0) {
         tableBody.innerHTML = `<tr><td colspan="${colspan}">Không có dữ liệu để hiển thị.</td></tr>`;
         return;
     }
-
     if (viewName === 'Product') {
         renderProductTable(data, tableBody);
     } else {
@@ -205,51 +244,38 @@ window.changePage = (viewName, page) => {
     loadDataForView(viewName, page, true);
 };
 
-// =================================================================
-// LOGIC THÊM SẢN PHẨM (MODAL) VỚI GOOGLE DRIVE UPLOAD
-// =================================================================
-
 function setupAddProductModal() {
     const viewContainer = document.getElementById(`view-${currentView}`);
     const modal = viewContainer.querySelector('#add-product-modal');
     const btn = viewContainer.querySelector('#btn-add-product');
     const span = viewContainer.querySelector('.close-button');
     const form = viewContainer.querySelector('#add-product-form');
-
     if (!modal || !btn || !span || !form) return;
-
     btn.onclick = () => { modal.style.display = 'block'; };
     span.onclick = () => { modal.style.display = 'none'; };
     window.addEventListener('click', (event) => {
         if (event.target == modal) modal.style.display = 'none';
     });
-
     form.onsubmit = async (event) => {
         event.preventDefault();
         const submitButton = form.querySelector('button[type="submit"]');
         submitButton.textContent = 'Đang xử lý...';
         submitButton.disabled = true;
-
         try {
-            // Bước 1: Đọc file ảnh dưới dạng base64
             const fileInput = form.querySelector('input[name="PHOTO"]');
             const file = fileInput.files[0];
             let imageFilePayload = null;
-            
             if (file) {
-                // Giới hạn kích thước file ở client để tránh lỗi từ Vercel
                 if (file.size > 4.5 * 1024 * 1024) {
                     throw new Error("Ảnh quá lớn. Vui lòng chọn ảnh có kích thước dưới 4.5 MB.");
                 }
                 const base64Data = await toBase64(file);
                 imageFilePayload = {
-                    base64Data: base64Data.split(',')[1], // Chỉ lấy phần dữ liệu sau dấu phẩy
+                    base64Data: base64Data.split(',')[1],
                     mimeType: file.type,
                     fileName: file.name
                 };
             }
-
-            // Bước 2: Gom dữ liệu từ form
             const formData = new FormData(form);
             const productData = {};
             for (let [key, value] of formData.entries()) {
@@ -257,8 +283,6 @@ function setupAddProductModal() {
                     productData[key] = value;
                 }
             }
-            
-            // Bước 3: Gửi toàn bộ payload (thông tin sản phẩm và file ảnh) đến backend
             const idToken = await window.getFreshIdToken();
             const response = await fetch(ADD_PRODUCT_ENDPOINT, {
                 method: 'POST',
@@ -267,23 +291,20 @@ function setupAddProductModal() {
                     'Authorization': `Bearer ${idToken}`
                 },
                 body: JSON.stringify({
-                    action: 'addProduct', // Action để Apps Script biết cần làm gì
+                    action: 'addProduct',
                     sheetName: 'Product',
                     productData: productData,
-                    imageFile: imageFilePayload // Gửi kèm đối tượng file ảnh
+                    imageFile: imageFilePayload
                 })
             });
-
             const result = await response.json();
             if (!response.ok || result.status !== 'success') {
                  throw new Error(result.message || "Có lỗi xảy ra từ server.");
             }
-
             alert('Thêm sản phẩm thành công!');
             modal.style.display = 'none';
             form.reset();
             loadDataForView('Product', 1, true);
-
         } catch (error) {
             alert(`Lỗi: ${error.message}`);
         } finally {
@@ -293,11 +314,6 @@ function setupAddProductModal() {
     }
 }
 
-/**
- * Hàm tiện ích chuyển đổi file thành chuỗi base64.
- * @param {File} file - File người dùng chọn.
- * @returns {Promise<string>} - Một promise sẽ resolve với chuỗi base64.
- */
 const toBase64 = file => new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.readAsDataURL(file);

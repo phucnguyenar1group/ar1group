@@ -4,7 +4,6 @@
     </div>
 
     <div class="table-container">
-        <!-- Thay đổi: class="data-grid" -->
         <table class="data-grid" id="product-table-grid">
             <thead>
                 <tr>
@@ -34,28 +33,60 @@
     <div class="pagination-controls" style="margin-top: 20px; text-align: center;">
     </div>
 
-    <!-- Modal không thay đổi -->
+    <!-- Modal đã được cập nhật bố cục -->
     <div id="add-product-modal" class="modal" style="display:none;">
         <div class="modal-content">
             <span class="close-button">&times;</span>
             <h2>Add New Product</h2>
             <form id="add-product-form">
-                <label>PHOTO<input type="file" name="PHOTO" accept="image/*"></label>
-                <label>SKU<input type="text" name="SKU"></label>
-                <label>PRODUCT DESCRIPTION / Tên sản phẩm (song ngữ)<input type="text" name="PRODUCT DESCRIPTION / Tên sản phẩm (song ngữ)"></label>
-                <label>STORAGE TYPE<input type="text" name="STORAGE TYPE"></label>
-                <label>PACKING SIZE (INDIVIDUAL WEIGHTS/SIZES)<input type="text" name="PACKING SIZE (INDIVIDUAL WEIGHTS/SIZES)"></label>
-                <label>UNITS PER CARTON<input type="text" name="UNITS PER CARTON"></label>
-                <label>N.W. PER CARTON (kg)<input type="text" name="N.W. PER CARTON (kg)"></label>
-                <label>GW. PER CARTON (kg)<input type="text" name="GW. PER CARTON (kg)"></label>
-                <label>L (cm)<input type="text" name="L (cm)"></label>
-                <label>W (cm)<input type="text" name="W (cm)"></label>
-                <label>H (cm)<input type="text" name="H (cm)"></label>
-                <label>HS CODE<input type="text" name="HS CODE"></label>
-                <label>UPC (BARCODE)<input type="text" name="UPC (BARCODE)"></label>
-                <label>INGREDIENTS<input type="text" name="INGREDIENTS"></label>
-                <label>SHELF LIFE<input type="text" name="SHELF LIFE"></label>
-                <button type="submit" class="btn btn-primary">Save Product</button>
+                <!-- Thêm class 'required-field' cho các label bắt buộc -->
+                <label for="photo-input" class="required-field">PHOTO</label>
+                <input type="file" id="photo-input" name="PHOTO" accept="image/*" required>
+
+                <label for="sku-input" class="required-field">SKU</label>
+                <input type="text" id="sku-input" name="SKU" required>
+                
+                <label for="desc-input" class="required-field">PRODUCT DESCRIPTION</label>
+                <input type="text" id="desc-input" name="PRODUCT DESCRIPTION / Tên sản phẩm (song ngữ)" required>
+                
+                <label for="storage-input">STORAGE TYPE</label>
+                <input type="text" id="storage-input" name="STORAGE TYPE">
+                
+                <label for="packing-input">PACKING SIZE</label>
+                <input type="text" id="packing-input" name="PACKING SIZE (INDIVIDUAL WEIGHTS/SIZES)">
+                
+                <label for="units-input">UNITS PER CARTON</label>
+                <input type="text" id="units-input" name="UNITS PER CARTON">
+                
+                <label for="nw-input">N.W. PER CARTON (kg)</label>
+                <input type="text" id="nw-input" name="N.W. PER CARTON (kg)">
+                
+                <label for="gw-input">GW. PER CARTON (kg)</label>
+                <input type="text" id="gw-input" name="GW. PER CARTON (kg)">
+                
+                <label for="l-input">L (cm)</label>
+                <input type="text" id="l-input" name="L (cm)">
+                
+                <label for="w-input">W (cm)</label>
+                <input type="text" id="w-input" name="W (cm)">
+
+                <label for="h-input">H (cm)</label>
+                <input type="text" id="h-input" name="H (cm)">
+
+                <label for="hs-input">HS CODE</label>
+                <input type="text" id="hs-input" name="HS CODE">
+
+                <label for="upc-input">UPC (BARCODE)</label>
+                <input type="text" id="upc-input" name="UPC (BARCODE)">
+
+                <label for="ing-input">INGREDIENTS</label>
+                <input type="text" id="ing-input" name="INGREDIENTS">
+
+                <label for="shelf-input">SHELF LIFE</label>
+                <input type="text" id="shelf-input" name="SHELF LIFE">
+                
+                <!-- Bọc nút submit trong một div để style grid hoạt động -->
+                <button type="submit" class="btn btn-primary form-submit-button">Save Product</button>
             </form>
         </div>
     </div>

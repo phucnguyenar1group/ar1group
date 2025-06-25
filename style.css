@@ -173,12 +173,41 @@ input[type="email"], input[type="password"] { padding: 10px; font-size: 15px; bo
 .action-view:hover { text-decoration: underline; }
 
 /* =================================
-   MODAL STYLES
+   MODAL STYLES (Cập nhật)
    ================================= */
 .modal { position: fixed; z-index: 1001; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; }
-.modal-content { background-color: #fefefe; padding: 20px; border: 1px solid #888; width: 90%; max-width: 600px; border-radius: 12px; position: relative; max-height: 80vh; overflow-y: auto; }
-.modal-content h2 { margin-top: 0; }
+.modal-content { background-color: #fefefe; padding: 24px 32px; border: 1px solid #888; width: 90%; max-width: 800px; /* Tăng chiều rộng modal */ border-radius: 12px; position: relative; max-height: 90vh; overflow-y: auto; }
+.modal-content h2 { margin-top: 0; margin-bottom: 24px; }
 .close-button { color: #aaa; position: absolute; top: 10px; right: 20px; font-size: 28px; font-weight: bold; cursor: pointer; }
-#add-product-form { display: flex; flex-direction: column; gap: 15px; }
-#add-product-form label { display: flex; flex-direction: column; gap: 5px; font-weight: 500; }
-#add-product-form input { padding: 8px; border: 1px solid #ccc; border-radius: 6px; }
+
+#add-product-form {
+  display: grid;
+  /* Bố cục 2 cột */
+  grid-template-columns: 250px 1fr;
+  gap: 16px 24px; /* Khoảng cách hàng và cột */
+  align-items: center;
+}
+#add-product-form label {
+  font-weight: 500;
+  text-align: right; /* Căn lề phải cho tiêu đề */
+}
+/* Style cho trường bắt buộc */
+#add-product-form label.required-field::after {
+  content: " *";
+  color: red;
+  font-weight: bold;
+}
+#add-product-form input {
+  padding: 8px 12px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  width: 100%;
+  box-sizing: border-box; /* Quan trọng */
+}
+/* Nút submit sẽ chiếm trọn 2 cột */
+#add-product-form .form-submit-button {
+  grid-column: 1 / -1; /* Bắt đầu từ cột 1 và kéo dài đến hết */
+  justify-self: end; /* Đẩy nút về phía bên phải */
+  width: auto;
+  padding: 10px 24px;
+}
